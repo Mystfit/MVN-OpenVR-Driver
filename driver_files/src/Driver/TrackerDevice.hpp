@@ -13,7 +13,7 @@
 #include <iostream>
 #include <string>
 
-namespace ExampleDriver {
+namespace MVNDriver {
     class TrackerDevice : public IVRDevice {
         public:
 

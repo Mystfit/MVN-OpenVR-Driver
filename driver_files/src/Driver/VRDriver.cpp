@@ -4,14 +4,16 @@
 #include <Driver/ControllerDevice.hpp>
 #include <Driver/TrackingReferenceDevice.hpp>
 
-vr::EVRInitError ExampleDriver::VRDriver::Init(vr::IVRDriverContext* pDriverContext)
+#include <Driver/MVN/quaterniondatagram.h>
+
+vr::EVRInitError MVNDriver::VRDriver::Init(vr::IVRDriverContext* pDriverContext)
 {
     // Perform driver context initialisation
     if (vr::EVRInitError init_error = vr::InitServerDriverContext(pDriverContext); init_error != vr::EVRInitError::VRInitError_None) {
         return init_error;
     }
 
-    Log("Activating AprilTag Driver Bridge " + version + "...");
+    //Log("Activating AprilTag Driver Bridge " + version + "...");
 
     // Add a HMD
     //this->AddDevice(std::make_shared<HMDDevice>("Example_HMDDevice"));
@@ -20,24 +22,34 @@ vr::EVRInitError ExampleDriver::VRDriver::Init(vr::IVRDriverContext* pDriverCont
     //this->AddDevice(std::make_shared<ControllerDevice>("Example_ControllerDevice", ControllerDevice::Handedness::ANY));
     //this->AddDevice(std::make_shared<ControllerDevice>("Example_ControllerDevice_Right", ControllerDevice::Handedness::RIGHT));
     
-    ipcServer.init("ApriltagPipeIn");
+    //ipcServer.init("ApriltagPipeIn");
 
-    std::thread pipeThread(&ExampleDriver::VRDriver::PipeThread, this);
-    pipeThread.detach();
+    //std::thread pipeThread(&MVNDriver::VRDriver::PipeThread, this);
+    //pipeThread.detach();
   
     // Add a couple tracking references
     //this->AddDevice(std::make_shared<TrackingReferenceDevice>("Example_TrackingReference_A"));
     //this->AddDevice(std::make_shared<TrackingReferenceDevice>("Example_TrackingReference_B"));
 
-    Log("AprilTag Driver Loaded Successfully");
+    //Log("AprilTag Driver Loaded Successfully");
+
+    std::string hostDestinationAddress = "localhost";
+    int port = 9763;
+    mvn_udp_server = std::make_unique<UdpServer>(
+        hostDestinationAddress, 
+        (uint16_t)port, 
+        [this](StreamingProtocol protocol, const Datagram* message) {
+            this->ReceiveMVNData(protocol, message); 
+        });
 
 	return vr::VRInitError_None;
 }
 
-void ExampleDriver::VRDriver::Cleanup()
+void MVNDriver::VRDriver::Cleanup()
 {
 }
 
+#ifdef NEVERDEFINED
 void ExampleDriver::VRDriver::PipeThread()
 {
     char buffer[1024];
@@ -297,8 +309,33 @@ void ExampleDriver::VRDriver::PipeThread()
         */
     }
 }
+#endif
 
-void ExampleDriver::VRDriver::RunFrame()
+void MVNDriver::VRDriver::ReceiveMVNData(StreamingProtocol protocol, const Datagram* message)
+{
+    if (protocol == StreamingProtocol::SPPoseQuaternion) {
+        const QuaternionDatagram* quat_msg = static_cast<const QuaternionDatagram*>(message);
+        
+        for (auto tracker_pair : trackers_) {
+            auto segment_data = quat_msg->GetSegmentData(tracker_pair.first);
+            tracker_pair.second->save_current_pose(
+                //a, b, c, qw, qx, qy, qz, time
+                segment_data.position[0], 
+                segment_data.position[1],
+                segment_data.position[2],
+                segment_data.orientation[0],
+                segment_data.orientation[1],
+                segment_data.orientation[2],
+                segment_data.orientation[3],
+                quat_msg->frameTime()
+            );
+        }
+    }
+
+    
+}
+
+void MVNDriver::VRDriver::RunFrame()
 {
     //MessageBox(NULL,"hi", "Example Driver", MB_OK);
     // Collect events
@@ -319,39 +356,39 @@ void ExampleDriver::VRDriver::RunFrame()
     //MessageBox(NULL, std::to_string(((double)this->frame_timing_.count()) * 0.1).c_str(), "Example Driver", MB_OK);
 
     for (auto& device : this->trackers_)
-        device->Update();
+        device.second->Update();
 
 }
 
-bool ExampleDriver::VRDriver::ShouldBlockStandbyMode()
+bool MVNDriver::VRDriver::ShouldBlockStandbyMode()
 {
     return false;
 }
 
-void ExampleDriver::VRDriver::EnterStandby()
+void MVNDriver::VRDriver::EnterStandby()
 {
 }
 
-void ExampleDriver::VRDriver::LeaveStandby()
+void MVNDriver::VRDriver::LeaveStandby()
 {
 }
 
-std::vector<std::shared_ptr<ExampleDriver::IVRDevice>> ExampleDriver::VRDriver::GetDevices()
+std::vector<std::shared_ptr<MVNDriver::IVRDevice>> MVNDriver::VRDriver::GetDevices()
 {
     return this->devices_;
 }
 
-std::vector<vr::VREvent_t> ExampleDriver::VRDriver::GetOpenVREvents()
+std::vector<vr::VREvent_t> MVNDriver::VRDriver::GetOpenVREvents()
 {
     return this->openvr_events_;
 }
 
-std::chrono::milliseconds ExampleDriver::VRDriver::GetLastFrameTime()
+std::chrono::milliseconds MVNDriver::VRDriver::GetLastFrameTime()
 {
     return this->frame_timing_;
 }
 
-bool ExampleDriver::VRDriver::AddDevice(std::shared_ptr<IVRDevice> device)
+bool MVNDriver::VRDriver::AddDevice(std::shared_ptr<IVRDevice> device)
 {
     vr::ETrackedDeviceClass openvr_device_class;
     // Remember to update this switch when new device types are added
@@ -377,7 +414,7 @@ bool ExampleDriver::VRDriver::AddDevice(std::shared_ptr<IVRDevice> device)
     return result;
 }
 
-ExampleDriver::SettingsValue ExampleDriver::VRDriver::GetSettingsValue(std::string key)
+MVNDriver::SettingsValue MVNDriver::VRDriver::GetSettingsValue(std::string key)
 {
     vr::EVRSettingsError err = vr::EVRSettingsError::VRSettingsError_None;
     int int_value = vr::VRSettings()->GetInt32(settings_key_.c_str(), key.c_str(), &err);
@@ -405,23 +442,23 @@ ExampleDriver::SettingsValue ExampleDriver::VRDriver::GetSettingsValue(std::stri
     return SettingsValue();
 }
 
-void ExampleDriver::VRDriver::Log(std::string message)
+void MVNDriver::VRDriver::Log(std::string message)
 {
     std::string message_endl = message + "\n";
     vr::VRDriverLog()->Log(message_endl.c_str());
 }
 
-vr::IVRDriverInput* ExampleDriver::VRDriver::GetInput()
+vr::IVRDriverInput* MVNDriver::VRDriver::GetInput()
 {
     return vr::VRDriverInput();
 }
 
-vr::CVRPropertyHelpers* ExampleDriver::VRDriver::GetProperties()
+vr::CVRPropertyHelpers* MVNDriver::VRDriver::GetProperties()
 {
     return vr::VRProperties();
 }
 
-vr::IVRServerDriverHost* ExampleDriver::VRDriver::GetDriverHost()
+vr::IVRServerDriverHost* MVNDriver::VRDriver::GetDriverHost()
 {
     return vr::VRServerDriverHost();
 }
@@ -431,7 +468,7 @@ vr::IVRServerDriverHost* ExampleDriver::VRDriver::GetDriverHost()
 // from: https://github.com/Omnifinity/OpenVR-Tracking-Example/blob/master/HTC%20Lighthouse%20Tracking%20Example/LighthouseTracking.cpp
 //-----------------------------------------------------------------------------
 
-vr::HmdQuaternion_t ExampleDriver::VRDriver::GetRotation(vr::HmdMatrix34_t matrix) {
+vr::HmdQuaternion_t MVNDriver::VRDriver::GetRotation(vr::HmdMatrix34_t matrix) {
     vr::HmdQuaternion_t q;
 
     q.w = sqrt(fmax(0, 1 + matrix.m[0][0] + matrix.m[1][1] + matrix.m[2][2])) / 2;
@@ -448,7 +485,7 @@ vr::HmdQuaternion_t ExampleDriver::VRDriver::GetRotation(vr::HmdMatrix34_t matri
 // from: https://github.com/Omnifinity/OpenVR-Tracking-Example/blob/master/HTC%20Lighthouse%20Tracking%20Example/LighthouseTracking.cpp
 //-----------------------------------------------------------------------------
 
-vr::HmdVector3_t ExampleDriver::VRDriver::GetPosition(vr::HmdMatrix34_t matrix) {
+vr::HmdVector3_t MVNDriver::VRDriver::GetPosition(vr::HmdMatrix34_t matrix) {
     vr::HmdVector3_t vector;
 
     vector.v[0] = matrix.m[0][3];

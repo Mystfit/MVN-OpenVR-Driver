@@ -12,9 +12,10 @@
 #include <Driver/ControllerDevice.hpp>
 #include <Driver/TrackingReferenceDevice.hpp>
 
-#include "Ipc.hpp"
+#include <Driver/MVN/udpserver.h>
+#include <Driver/MVN/segments.h>
 
-namespace ExampleDriver {
+namespace MVNDriver {
     class VRDriver : public IVRDriver {
     public:
 
@@ -40,12 +41,11 @@ namespace ExampleDriver {
         virtual ~VRDriver() = default;
 
     private:
-        std::string version = "0.5.6";
+        std::string version = "0.0.1";
 
-        Ipc::Server ipcServer;
         std::shared_ptr<ControllerDevice> fakemove_;
         std::vector<std::shared_ptr<IVRDevice>> devices_;
-        std::vector<std::shared_ptr<TrackerDevice>> trackers_;
+        std::unordered_map<Segment, std::shared_ptr<TrackerDevice>> trackers_;
         std::vector<std::shared_ptr<TrackingReferenceDevice>> stations_;
         std::vector<vr::VREvent_t> openvr_events_;
         std::chrono::milliseconds frame_timing_ = std::chrono::milliseconds(16);
@@ -56,6 +56,9 @@ namespace ExampleDriver {
         vr::HmdQuaternion_t GetRotation(vr::HmdMatrix34_t matrix);
         vr::HmdVector3_t GetPosition(vr::HmdMatrix34_t matrix);
         void PipeThread();
+
+        std::unique_ptr<UdpServer> mvn_udp_server;
+        void ReceiveMVNData(StreamingProtocol, const Datagram*);
 
         int pipeNum = 1;
         double smoothFactor = 0.2;

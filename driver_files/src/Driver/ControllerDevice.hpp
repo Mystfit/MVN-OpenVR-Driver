@@ -8,7 +8,7 @@
 #include <Driver/IVRDevice.hpp>
 #include <Native/DriverFactory.hpp>
 
-namespace ExampleDriver {
+namespace MVNDriver {
     class ControllerDevice : public IVRDevice {
         public:
 

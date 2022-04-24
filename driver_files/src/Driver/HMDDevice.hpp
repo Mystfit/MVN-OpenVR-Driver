@@ -8,7 +8,7 @@
 #include <Driver/IVRDevice.hpp>
 #include <Native/DriverFactory.hpp>
 
-namespace ExampleDriver {
+namespace MVNDriver {
     class HMDDevice : public IVRDevice, public vr::IVRDisplayComponent {
         public:
             HMDDevice(std::string serial);

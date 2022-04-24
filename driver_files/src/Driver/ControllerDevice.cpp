@@ -3,20 +3,20 @@
 #include "ControllerDevice.hpp"
 #include "Key.hpp"
 
-ExampleDriver::ControllerDevice::ControllerDevice(std::string serial, ControllerDevice::Handedness handedness):
+MVNDriver::ControllerDevice::ControllerDevice(std::string serial, ControllerDevice::Handedness handedness):
     serial_(serial),
     handedness_(handedness)
 {
 }
 
-std::string ExampleDriver::ControllerDevice::GetSerial()
+std::string MVNDriver::ControllerDevice::GetSerial()
 {
     return this->serial_;
 }
 
 long long counter = 0;
 
-void ExampleDriver::ControllerDevice::SetDirection(float x, float y, float rx, float ry, float a, float b)
+void MVNDriver::ControllerDevice::SetDirection(float x, float y, float rx, float ry, float a, float b)
 {
     if(x == 0.0f && y == 0.0f)
         GetDriver()->GetInput()->UpdateBooleanComponent(this->joystick_touch_component_, false, 0);
@@ -53,7 +53,7 @@ void ExampleDriver::ControllerDevice::SetDirection(float x, float y, float rx, f
     }
 }
 
-void ExampleDriver::ControllerDevice::Update()
+void MVNDriver::ControllerDevice::Update()
 {
     if (this->device_index_ == vr::k_unTrackedDeviceIndexInvalid)
         return;
@@ -107,22 +107,22 @@ void ExampleDriver::ControllerDevice::Update()
     this->last_pose_ = pose;
 }
 
-DeviceType ExampleDriver::ControllerDevice::GetDeviceType()
+DeviceType MVNDriver::ControllerDevice::GetDeviceType()
 {
     return DeviceType::CONTROLLER;
 }
 
-ExampleDriver::ControllerDevice::Handedness ExampleDriver::ControllerDevice::GetHandedness()
+MVNDriver::ControllerDevice::Handedness MVNDriver::ControllerDevice::GetHandedness()
 {
     return this->handedness_;
 }
 
-vr::TrackedDeviceIndex_t ExampleDriver::ControllerDevice::GetDeviceIndex()
+vr::TrackedDeviceIndex_t MVNDriver::ControllerDevice::GetDeviceIndex()
 {
     return this->device_index_;
 }
 
-vr::EVRInitError ExampleDriver::ControllerDevice::Activate(uint32_t unObjectId)
+vr::EVRInitError MVNDriver::ControllerDevice::Activate(uint32_t unObjectId)
 {
     this->device_index_ = unObjectId;
 
@@ -183,27 +183,27 @@ vr::EVRInitError ExampleDriver::ControllerDevice::Activate(uint32_t unObjectId)
     return vr::EVRInitError::VRInitError_None;
 }
 
-void ExampleDriver::ControllerDevice::Deactivate()
+void MVNDriver::ControllerDevice::Deactivate()
 {
     this->device_index_ = vr::k_unTrackedDeviceIndexInvalid;
 }
 
-void ExampleDriver::ControllerDevice::EnterStandby()
+void MVNDriver::ControllerDevice::EnterStandby()
 {
 }
 
-void* ExampleDriver::ControllerDevice::GetComponent(const char* pchComponentNameAndVersion)
+void* MVNDriver::ControllerDevice::GetComponent(const char* pchComponentNameAndVersion)
 {
     return nullptr;
 }
 
-void ExampleDriver::ControllerDevice::DebugRequest(const char* pchRequest, char* pchResponseBuffer, uint32_t unResponseBufferSize)
+void MVNDriver::ControllerDevice::DebugRequest(const char* pchRequest, char* pchResponseBuffer, uint32_t unResponseBufferSize)
 {
     if (unResponseBufferSize >= 1)
         pchResponseBuffer[0] = 0;
 }
 
-vr::DriverPose_t ExampleDriver::ControllerDevice::GetPose()
+vr::DriverPose_t MVNDriver::ControllerDevice::GetPose()
 {
     return last_pose_;
 }

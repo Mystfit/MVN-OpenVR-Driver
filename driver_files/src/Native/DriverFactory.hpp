@@ -15,6 +15,6 @@
 
 extern "C" EXPORT void* HmdDriverFactory(const char* interface_name, int* return_code);
 
-namespace ExampleDriver {
-    std::shared_ptr<ExampleDriver::IVRDriver> GetDriver();
+namespace MVNDriver {
+    std::shared_ptr<MVNDriver::IVRDriver> GetDriver();
 }

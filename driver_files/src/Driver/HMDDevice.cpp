@@ -6,16 +6,16 @@
 #define _stricmp strcasecmp
 #endif
 
-ExampleDriver::HMDDevice::HMDDevice(std::string serial):serial_(serial)
+MVNDriver::HMDDevice::HMDDevice(std::string serial):serial_(serial)
 {
 }
 
-std::string ExampleDriver::HMDDevice::GetSerial()
+std::string MVNDriver::HMDDevice::GetSerial()
 {
     return this->serial_;
 }
 
-void ExampleDriver::HMDDevice::Update()
+void MVNDriver::HMDDevice::Update()
 {
     if (this->device_index_ == vr::k_unTrackedDeviceIndexInvalid)
         return;
@@ -63,17 +63,17 @@ void ExampleDriver::HMDDevice::Update()
     this->last_pose_ = pose;
 }
 
-DeviceType ExampleDriver::HMDDevice::GetDeviceType()
+DeviceType MVNDriver::HMDDevice::GetDeviceType()
 {
     return DeviceType::HMD;
 }
 
-vr::TrackedDeviceIndex_t ExampleDriver::HMDDevice::GetDeviceIndex()
+vr::TrackedDeviceIndex_t MVNDriver::HMDDevice::GetDeviceIndex()
 {
     return this->device_index_;
 }
 
-vr::EVRInitError ExampleDriver::HMDDevice::Activate(uint32_t unObjectId)
+vr::EVRInitError MVNDriver::HMDDevice::Activate(uint32_t unObjectId)
 {
     this->device_index_ = unObjectId;
 
@@ -141,16 +141,16 @@ vr::EVRInitError ExampleDriver::HMDDevice::Activate(uint32_t unObjectId)
     return vr::EVRInitError::VRInitError_None;
 }
 
-void ExampleDriver::HMDDevice::Deactivate()
+void MVNDriver::HMDDevice::Deactivate()
 {
     this->device_index_ = vr::k_unTrackedDeviceIndexInvalid;
 }
 
-void ExampleDriver::HMDDevice::EnterStandby()
+void MVNDriver::HMDDevice::EnterStandby()
 {
 }
 
-void* ExampleDriver::HMDDevice::GetComponent(const char* pchComponentNameAndVersion)
+void* MVNDriver::HMDDevice::GetComponent(const char* pchComponentNameAndVersion)
 {
     if (!_stricmp(pchComponentNameAndVersion, vr::IVRDisplayComponent_Version)) {
         return static_cast<vr::IVRDisplayComponent*>(this);
@@ -158,18 +158,18 @@ void* ExampleDriver::HMDDevice::GetComponent(const char* pchComponentNameAndVers
     return nullptr;
 }
 
-void ExampleDriver::HMDDevice::DebugRequest(const char* pchRequest, char* pchResponseBuffer, uint32_t unResponseBufferSize)
+void MVNDriver::HMDDevice::DebugRequest(const char* pchRequest, char* pchResponseBuffer, uint32_t unResponseBufferSize)
 {
     if (unResponseBufferSize >= 1)
         pchResponseBuffer[0] = 0;
 }
 
-vr::DriverPose_t ExampleDriver::HMDDevice::GetPose()
+vr::DriverPose_t MVNDriver::HMDDevice::GetPose()
 {
     return this->last_pose_;
 }
 
-void ExampleDriver::HMDDevice::GetWindowBounds(int32_t* pnX, int32_t* pnY, uint32_t* pnWidth, uint32_t* pnHeight)
+void MVNDriver::HMDDevice::GetWindowBounds(int32_t* pnX, int32_t* pnY, uint32_t* pnWidth, uint32_t* pnHeight)
 {
     *pnX = this->window_x_;
     *pnY = this->window_y_;
@@ -177,23 +177,23 @@ void ExampleDriver::HMDDevice::GetWindowBounds(int32_t* pnX, int32_t* pnY, uint3
     *pnHeight = this->window_height_;
 }
 
-bool ExampleDriver::HMDDevice::IsDisplayOnDesktop()
+bool MVNDriver::HMDDevice::IsDisplayOnDesktop()
 {
     return true;
 }
 
-bool ExampleDriver::HMDDevice::IsDisplayRealDisplay()
+bool MVNDriver::HMDDevice::IsDisplayRealDisplay()
 {
     return false;
 }
 
-void ExampleDriver::HMDDevice::GetRecommendedRenderTargetSize(uint32_t* pnWidth, uint32_t* pnHeight)
+void MVNDriver::HMDDevice::GetRecommendedRenderTargetSize(uint32_t* pnWidth, uint32_t* pnHeight)
 {
     *pnWidth = this->window_width_;
     *pnHeight = this->window_height_;
 }
 
-void ExampleDriver::HMDDevice::GetEyeOutputViewport(vr::EVREye eEye, uint32_t* pnX, uint32_t* pnY, uint32_t* pnWidth, uint32_t* pnHeight)
+void MVNDriver::HMDDevice::GetEyeOutputViewport(vr::EVREye eEye, uint32_t* pnX, uint32_t* pnY, uint32_t* pnWidth, uint32_t* pnHeight)
 {
     *pnY = 0;
     *pnWidth = this->window_width_ / 2;
@@ -207,7 +207,7 @@ void ExampleDriver::HMDDevice::GetEyeOutputViewport(vr::EVREye eEye, uint32_t* p
     }
 }
 
-void ExampleDriver::HMDDevice::GetProjectionRaw(vr::EVREye eEye, float* pfLeft, float* pfRight, float* pfTop, float* pfBottom)
+void MVNDriver::HMDDevice::GetProjectionRaw(vr::EVREye eEye, float* pfLeft, float* pfRight, float* pfTop, float* pfBottom)
 {
     *pfLeft = -1;
     *pfRight = 1;
@@ -215,7 +215,7 @@ void ExampleDriver::HMDDevice::GetProjectionRaw(vr::EVREye eEye, float* pfLeft, 
     *pfBottom = 1;
 }
 
-vr::DistortionCoordinates_t ExampleDriver::HMDDevice::ComputeDistortion(vr::EVREye eEye, float fU, float fV)
+vr::DistortionCoordinates_t MVNDriver::HMDDevice::ComputeDistortion(vr::EVREye eEye, float fU, float fV)
 {
     vr::DistortionCoordinates_t coordinates;
     coordinates.rfBlue[0] = fU;

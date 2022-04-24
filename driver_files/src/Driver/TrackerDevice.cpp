@@ -15,7 +15,7 @@ void normalizeQuat(double pose[])
     pose[6] /= mag;
 }
 
-ExampleDriver::TrackerDevice::TrackerDevice(std::string serial, std::string role):
+MVNDriver::TrackerDevice::TrackerDevice(std::string serial, std::string role):
     serial_(serial),
     role_(role)
 {
@@ -23,12 +23,12 @@ ExampleDriver::TrackerDevice::TrackerDevice(std::string serial, std::string role
     this->isSetup = false;
 }
 
-std::string ExampleDriver::TrackerDevice::GetSerial()
+std::string MVNDriver::TrackerDevice::GetSerial()
 {
     return this->serial_;
 }
 
-void ExampleDriver::TrackerDevice::reinit(int msaved, double mtime, double msmooth)
+void MVNDriver::TrackerDevice::reinit(int msaved, double mtime, double msmooth)
 {
     if (msaved < 5)     //prevent having too few values to calculate linear interpolation, and prevent crash on 0
         msaved = 5;
@@ -47,7 +47,7 @@ void ExampleDriver::TrackerDevice::reinit(int msaved, double mtime, double msmoo
     //Log("Settings changed! " + std::to_string(msaved) + " " + std::to_string(mtime));
 }
 
-void ExampleDriver::TrackerDevice::Update()
+void MVNDriver::TrackerDevice::Update()
 {
     if (this->device_index_ == vr::k_unTrackedDeviceIndexInvalid)
         return;
@@ -158,13 +158,13 @@ void ExampleDriver::TrackerDevice::Update()
     this->last_pose_ = pose;
 }
 
-void ExampleDriver::TrackerDevice::Log(std::string message)
+void MVNDriver::TrackerDevice::Log(std::string message)
 {
     std::string message_endl = message + "\n";
     vr::VRDriverLog()->Log(message_endl.c_str());
 }
 
-int ExampleDriver::TrackerDevice::get_next_pose(double time_offset, double pred[])
+int MVNDriver::TrackerDevice::get_next_pose(double time_offset, double pred[])
 {
     int statuscode = 0;
 
@@ -273,7 +273,7 @@ int ExampleDriver::TrackerDevice::get_next_pose(double time_offset, double pred[
     //return pred[0], pred[1], pred[2], pred[3], pred[4], pred[5], pred[6];
 }
 
-void ExampleDriver::TrackerDevice::save_current_pose(double a, double b, double c, double w, double x, double y, double z, double time_offset)
+void MVNDriver::TrackerDevice::save_current_pose(double a, double b, double c, double w, double x, double y, double z, double time_offset)
 {
     if (max_time == 0)
     {
@@ -391,7 +391,7 @@ void ExampleDriver::TrackerDevice::save_current_pose(double a, double b, double 
 }
 
 /*
-void ExampleDriver::TrackerDevice::UpdatePos(double a, double b, double c, double time, double smoothing)
+void MVNDriver::TrackerDevice::UpdatePos(double a, double b, double c, double time, double smoothing)
 {
     this->wantedPose[0] = (1 - smoothing) * this->wantedPose[0] + smoothing * a;
     this->wantedPose[1] = (1 - smoothing) * this->wantedPose[1] + smoothing * b;
@@ -401,7 +401,7 @@ void ExampleDriver::TrackerDevice::UpdatePos(double a, double b, double c, doubl
 
 }
 
-void ExampleDriver::TrackerDevice::UpdateRot(double qw, double qx, double qy, double qz, double time, double smoothing)
+void MVNDriver::TrackerDevice::UpdateRot(double qw, double qx, double qy, double qz, double time, double smoothing)
 {
     //lerp
     double dot = qx * this->wantedPose[4] + qy * this->wantedPose[5] + qz * this->wantedPose[6] + qw * this->wantedPose[3];
@@ -436,17 +436,17 @@ void ExampleDriver::TrackerDevice::UpdateRot(double qw, double qx, double qy, do
 }
 */
 
-DeviceType ExampleDriver::TrackerDevice::GetDeviceType()
+DeviceType MVNDriver::TrackerDevice::GetDeviceType()
 {
     return DeviceType::TRACKER;
 }
 
-vr::TrackedDeviceIndex_t ExampleDriver::TrackerDevice::GetDeviceIndex()
+vr::TrackedDeviceIndex_t MVNDriver::TrackerDevice::GetDeviceIndex()
 {
     return this->device_index_;
 }
 
-vr::EVRInitError ExampleDriver::TrackerDevice::Activate(uint32_t unObjectId)
+vr::EVRInitError MVNDriver::TrackerDevice::Activate(uint32_t unObjectId)
 {
     this->device_index_ = unObjectId;
 
@@ -533,27 +533,27 @@ vr::EVRInitError ExampleDriver::TrackerDevice::Activate(uint32_t unObjectId)
     return vr::EVRInitError::VRInitError_None;
 }
 
-void ExampleDriver::TrackerDevice::Deactivate()
+void MVNDriver::TrackerDevice::Deactivate()
 {
     this->device_index_ = vr::k_unTrackedDeviceIndexInvalid;
 }
 
-void ExampleDriver::TrackerDevice::EnterStandby()
+void MVNDriver::TrackerDevice::EnterStandby()
 {
 }
 
-void* ExampleDriver::TrackerDevice::GetComponent(const char* pchComponentNameAndVersion)
+void* MVNDriver::TrackerDevice::GetComponent(const char* pchComponentNameAndVersion)
 {
     return nullptr;
 }
 
-void ExampleDriver::TrackerDevice::DebugRequest(const char* pchRequest, char* pchResponseBuffer, uint32_t unResponseBufferSize)
+void MVNDriver::TrackerDevice::DebugRequest(const char* pchRequest, char* pchResponseBuffer, uint32_t unResponseBufferSize)
 {
     if (unResponseBufferSize >= 1)
         pchResponseBuffer[0] = 0;
 }
 
-vr::DriverPose_t ExampleDriver::TrackerDevice::GetPose()
+vr::DriverPose_t MVNDriver::TrackerDevice::GetPose()
 {
     return last_pose_;
 }
