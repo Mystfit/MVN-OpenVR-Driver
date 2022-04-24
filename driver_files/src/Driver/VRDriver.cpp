@@ -33,6 +33,8 @@ vr::EVRInitError MVNDriver::VRDriver::Init(vr::IVRDriverContext* pDriverContext)
 
     //Log("AprilTag Driver Loaded Successfully");
 
+    PopulateTrackers();
+
     std::string hostDestinationAddress = "localhost";
     int port = 9763;
     mvn_udp_server = std::make_unique<UdpServer>(
@@ -371,6 +373,26 @@ void MVNDriver::VRDriver::EnterStandby()
 
 void MVNDriver::VRDriver::LeaveStandby()
 {
+}
+
+void MVNDriver::VRDriver::PopulateTrackers()
+{
+    
+}
+
+std::string MVNDriver::VRDriver::GetSettingsSegmentTarget(Segment segment)
+{
+    std::string prefix = "SegmentTarget_";
+    std::string key = prefix + SegmentName.at(segment);
+    vr::EVRSettingsError err;
+
+    std::string str_value;
+    str_value.reserve(1024);
+    vr::VRSettings()->GetString(settings_key_.c_str(), key.c_str(), str_value.data(), 1024, &err);
+    if (err == vr::EVRSettingsError::VRSettingsError_None) {
+        return str_value;
+    }
+    return "";
 }
 
 std::vector<std::shared_ptr<MVNDriver::IVRDevice>> MVNDriver::VRDriver::GetDevices()
