@@ -163,7 +163,7 @@ vr::EVRInitError MVNDriver::ControllerDevice::Activate(uint32_t unObjectId)
     GetDriver()->GetProperties()->SetInt32Property(props, vr::Prop_ControllerRoleHint_Int32, vr::ETrackedControllerRole::TrackedControllerRole_Treadmill);
 
     // Set controller profile
-    GetDriver()->GetProperties()->SetStringProperty(props, vr::Prop_InputProfilePath_String, "{apriltagtrackers}/input/hipmove_bindings.json");
+    GetDriver()->GetProperties()->SetStringProperty(props, vr::Prop_InputProfilePath_String, "{MVN}/input/hipmove_bindings.json");
 
     // Change the icon depending on which handedness this controller is using (ANY uses right)
     std::string controller_handedness_str = this->handedness_ == Handedness::LEFT ? "left" : "right";

@@ -62,9 +62,13 @@ QuaternionDatagram::~QuaternionDatagram()
 /*! Deserialize the data from \a arr
 	\sa serializeData
 */
-QuaternionDatagram::Kinematics QuaternionDatagram::GetSegmentData(Segment segmentId) const
+QuaternionDatagram::Kinematics QuaternionDatagram::GetSegmentData(Segment segmentIndex) const
 {
-	auto segment_it = std::find_if(m_data.begin(), m_data.end(), [&segmentId](const Kinematics& arg) { return arg.segmentId == segmentId; });
+	// ID is index + 1 accoring to https://www.xsens.com/hubfs/Downloads/Manuals/MVN_real-time_network_streaming_protocol_specification.pdf
+	int segmentID = segmentIndex + 1; 
+	auto segment_it = std::find_if(m_data.begin(), m_data.end(), [&segmentID](const Kinematics& arg) {
+		return arg.segmentId == segmentID;
+	});
 	if (segment_it != m_data.end()) {
 		return *segment_it;
 	}

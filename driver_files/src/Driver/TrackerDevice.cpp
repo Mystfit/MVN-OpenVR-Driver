@@ -292,6 +292,7 @@ void MVNDriver::TrackerDevice::save_current_pose(double a, double b, double c, d
 
         return;
     }
+
     double next_pose[7];
     int pose_valid = get_next_pose(time_offset, next_pose);
 
@@ -347,8 +348,8 @@ void MVNDriver::TrackerDevice::save_current_pose(double a, double b, double c, d
         return;
     }
 
-    if (time > max_time)
-        return;
+    //if (time > max_time)
+    //    return;
 
     if (prev_positions[max_saved - 1][0] < time && prev_positions[max_saved - 1][0] >= 0)
         return;
@@ -459,7 +460,7 @@ vr::EVRInitError MVNDriver::TrackerDevice::Activate(uint32_t unObjectId)
     GetDriver()->GetProperties()->SetUint64Property(props, vr::Prop_CurrentUniverseId_Uint64, 3);
     
     // Set up a model "number" (not needed but good to have)
-    GetDriver()->GetProperties()->SetStringProperty(props, vr::Prop_ModelNumber_String, "apriltag_tracker");
+    GetDriver()->GetProperties()->SetStringProperty(props, vr::Prop_ModelNumber_String, "MVN_tracker");
 
     // Opt out of hand selection
     GetDriver()->GetProperties()->SetInt32Property(props, vr::Prop_ControllerRoleHint_Int32, vr::ETrackedControllerRole::TrackedControllerRole_OptOut);
@@ -468,30 +469,30 @@ vr::EVRInitError MVNDriver::TrackerDevice::Activate(uint32_t unObjectId)
     GetDriver()->GetProperties()->SetStringProperty(props, vr::Prop_RenderModelName_String, "{htc}/rendermodels/vr_tracker_vive_1_0");
 
     // Set controller profile
-    //GetDriver()->GetProperties()->SetStringProperty(props, vr::Prop_InputProfilePath_String, "{apriltagtrackers}/input/example_tracker_bindings.json");
+    //GetDriver()->GetProperties()->SetStringProperty(props, vr::Prop_InputProfilePath_String, "{MVN}/input/example_tracker_bindings.json");
 
     // Set the icon
-    GetDriver()->GetProperties()->SetStringProperty(props, vr::Prop_NamedIconPathDeviceReady_String, "{apriltagtrackers}/icons/tracker_ready.png");
+    GetDriver()->GetProperties()->SetStringProperty(props, vr::Prop_NamedIconPathDeviceReady_String, "{MVN}/icons/tracker_ready.png");
 
-    if (this->serial_.find("Apriltag") == std::string::npos)
+    if (this->serial_.find("MVN") == std::string::npos)
     {
-        GetDriver()->GetProperties()->SetStringProperty(props, vr::Prop_NamedIconPathDeviceOff_String, "{apriltagtrackers}/icons/tracker_not_ready.png");
-        GetDriver()->GetProperties()->SetStringProperty(props, vr::Prop_NamedIconPathDeviceSearching_String, "{apriltagtrackers}/icons/tracker_not_ready.png");
-        GetDriver()->GetProperties()->SetStringProperty(props, vr::Prop_NamedIconPathDeviceSearchingAlert_String, "{apriltagtrackers}/icons/tracker_not_ready.png");
-        GetDriver()->GetProperties()->SetStringProperty(props, vr::Prop_NamedIconPathDeviceReadyAlert_String, "{apriltagtrackers}/icons/tracker_not_ready.png");
-        GetDriver()->GetProperties()->SetStringProperty(props, vr::Prop_NamedIconPathDeviceNotReady_String, "{apriltagtrackers}/icons/tracker_not_ready.png");
-        GetDriver()->GetProperties()->SetStringProperty(props, vr::Prop_NamedIconPathDeviceStandby_String, "{apriltagtrackers}/icons/tracker_not_ready.png");
-        GetDriver()->GetProperties()->SetStringProperty(props, vr::Prop_NamedIconPathDeviceAlertLow_String, "{apriltagtrackers}/icons/tracker_not_ready.png");
+        GetDriver()->GetProperties()->SetStringProperty(props, vr::Prop_NamedIconPathDeviceOff_String, "{MVN}/icons/tracker_not_ready.png");
+        GetDriver()->GetProperties()->SetStringProperty(props, vr::Prop_NamedIconPathDeviceSearching_String, "{MVN}/icons/tracker_not_ready.png");
+        GetDriver()->GetProperties()->SetStringProperty(props, vr::Prop_NamedIconPathDeviceSearchingAlert_String, "{MVN}/icons/tracker_not_ready.png");
+        GetDriver()->GetProperties()->SetStringProperty(props, vr::Prop_NamedIconPathDeviceReadyAlert_String, "{MVN}/icons/tracker_not_ready.png");
+        GetDriver()->GetProperties()->SetStringProperty(props, vr::Prop_NamedIconPathDeviceNotReady_String, "{MVN}/icons/tracker_not_ready.png");
+        GetDriver()->GetProperties()->SetStringProperty(props, vr::Prop_NamedIconPathDeviceStandby_String, "{MVN}/icons/tracker_not_ready.png");
+        GetDriver()->GetProperties()->SetStringProperty(props, vr::Prop_NamedIconPathDeviceAlertLow_String, "{MVN}/icons/tracker_not_ready.png");
     }
     else
     {
-        GetDriver()->GetProperties()->SetStringProperty(props, vr::Prop_NamedIconPathDeviceOff_String, "{apriltagtrackers}/icons/apriltag_not_ready.png");
-        GetDriver()->GetProperties()->SetStringProperty(props, vr::Prop_NamedIconPathDeviceSearching_String, "{apriltagtrackers}/icons/apriltag_not_ready.png");
-        GetDriver()->GetProperties()->SetStringProperty(props, vr::Prop_NamedIconPathDeviceSearchingAlert_String, "{apriltagtrackers}/icons/apriltag_not_ready.png");
-        GetDriver()->GetProperties()->SetStringProperty(props, vr::Prop_NamedIconPathDeviceReadyAlert_String, "{apriltagtrackers}/icons/apriltag_not_ready.png");
-        GetDriver()->GetProperties()->SetStringProperty(props, vr::Prop_NamedIconPathDeviceNotReady_String, "{apriltagtrackers}/icons/apriltag_not_ready.png");
-        GetDriver()->GetProperties()->SetStringProperty(props, vr::Prop_NamedIconPathDeviceStandby_String, "{apriltagtrackers}/icons/apriltag_not_ready.png");
-        GetDriver()->GetProperties()->SetStringProperty(props, vr::Prop_NamedIconPathDeviceAlertLow_String, "{apriltagtrackers}/icons/apriltag_not_ready.png");
+        GetDriver()->GetProperties()->SetStringProperty(props, vr::Prop_NamedIconPathDeviceOff_String, "{MVN}/icons/MVN_not_ready.png");
+        GetDriver()->GetProperties()->SetStringProperty(props, vr::Prop_NamedIconPathDeviceSearching_String, "{MVN}/icons/MVN_not_ready.png");
+        GetDriver()->GetProperties()->SetStringProperty(props, vr::Prop_NamedIconPathDeviceSearchingAlert_String, "{MVN}/icons/MVN_not_ready.png");
+        GetDriver()->GetProperties()->SetStringProperty(props, vr::Prop_NamedIconPathDeviceReadyAlert_String, "{MVN}/icons/MVN_not_ready.png");
+        GetDriver()->GetProperties()->SetStringProperty(props, vr::Prop_NamedIconPathDeviceNotReady_String, "{MVN}/icons/MVN_not_ready.png");
+        GetDriver()->GetProperties()->SetStringProperty(props, vr::Prop_NamedIconPathDeviceStandby_String, "{MVN}/icons/MVN_not_ready.png");
+        GetDriver()->GetProperties()->SetStringProperty(props, vr::Prop_NamedIconPathDeviceAlertLow_String, "{MVN}/icons/MVN_not_ready.png");
     }
     /*
     char id = this->serial_.at(12);
@@ -517,17 +518,17 @@ vr::EVRInitError MVNDriver::TrackerDevice::Activate(uint32_t unObjectId)
     else if (role_ == "TrackerRole_Waist")
         rolehint = "vive_tracker_waist";
 
-    GetDriver()->GetProperties()->SetStringProperty(props, vr::Prop_ControllerType_String, rolehint.c_str());
+    GetDriver()->GetProperties()->SetStringProperty(props, vr::Prop_ControllerType_String, role_.c_str());
 
     vr::VRProperties()->SetInt32Property(props, vr::Prop_DeviceClass_Int32, vr::TrackedDeviceClass_GenericTracker);
     vr::VRProperties()->SetInt32Property(props, vr::Prop_ControllerHandSelectionPriority_Int32, -1);
 
-    std::string l_registeredDevice("/devices/apriltagtrackers/");
+    std::string l_registeredDevice("/devices/MVN/");
     l_registeredDevice.append(serial_);
 
     Log("Setting role " + role_ + " to " + l_registeredDevice);
 
-    if(rolehint != "vive_tracker")
+    if(role_ != "vive_tracker")
         vr::VRSettings()->SetString(vr::k_pch_Trackers_Section, l_registeredDevice.c_str(), role_.c_str());
 
     return vr::EVRInitError::VRInitError_None;

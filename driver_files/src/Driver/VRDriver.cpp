@@ -43,6 +43,7 @@ vr::EVRInitError MVNDriver::VRDriver::Init(vr::IVRDriverContext* pDriverContext)
         [this](StreamingProtocol protocol, const Datagram* message) {
             this->ReceiveMVNData(protocol, message); 
         });
+    Log("Created MVN listen server");
 
 	return vr::VRInitError_None;
 }
@@ -320,17 +321,19 @@ void MVNDriver::VRDriver::ReceiveMVNData(StreamingProtocol protocol, const Datag
         
         for (auto tracker_pair : trackers_) {
             auto segment_data = quat_msg->GetSegmentData(tracker_pair.first);
-            tracker_pair.second->save_current_pose(
-                //a, b, c, qw, qx, qy, qz, time
-                segment_data.position[0], 
-                segment_data.position[1],
-                segment_data.position[2],
-                segment_data.orientation[0],
-                segment_data.orientation[1],
-                segment_data.orientation[2],
-                segment_data.orientation[3],
-                quat_msg->frameTime()
-            );
+            if (segment_data.segmentId > -1) {
+                tracker_pair.second->save_current_pose(
+                    //a, b, c, qw, qx, qy, qz, time
+                    segment_data.position[0],
+                    segment_data.position[1],
+                    segment_data.position[2],
+                    segment_data.orientation[0],
+                    segment_data.orientation[1],
+                    segment_data.orientation[2],
+                    segment_data.orientation[3],
+                    quat_msg->frameTime()
+                );
+            }
         }
     }
 
@@ -377,12 +380,30 @@ void MVNDriver::VRDriver::LeaveStandby()
 
 void MVNDriver::VRDriver::PopulateTrackers()
 {
-    
+    for (auto segment : SegmentName) {
+        auto segment_hint = GetSettingsSegmentTarget(segment.first);
+        if (segment_hint != "disabled") {
+            std::string name, role;
+
+            if (name == "")
+            {
+                name = "UnnamedTracker" + std::to_string(this->trackers_.size());
+                role = "TrackerRole_Waist";        //should be "vive_tracker_left_foot" or "vive_tracker_left_foot" or "vive_tracker_waist"
+            }
+
+            auto addtracker = std::make_shared<TrackerDevice>(segment.second, segment_hint);
+            this->AddDevice(addtracker);
+            this->trackers_.emplace(segment.first, addtracker);
+            addtracker->reinit(tracker_max_saved, tracker_max_time, tracker_smoothing);
+
+            Log("Added tracker " + segment.second + " with role " + segment_hint);
+        }
+    }
 }
 
 std::string MVNDriver::VRDriver::GetSettingsSegmentTarget(Segment segment)
 {
-    std::string prefix = "SegmentTarget_";
+    std::string prefix = "Role_";
     std::string key = prefix + SegmentName.at(segment);
     vr::EVRSettingsError err;
 
