@@ -318,18 +318,19 @@ void MVNDriver::VRDriver::ReceiveMVNData(StreamingProtocol protocol, const Datag
 {
     if (protocol == StreamingProtocol::SPPoseQuaternion) {
         const QuaternionDatagram* quat_msg = static_cast<const QuaternionDatagram*>(message);
-        
+        //x, z, -y, w
         for (auto tracker_pair : trackers_) {
             auto segment_data = quat_msg->GetSegmentData(tracker_pair.first);
             if (segment_data.segmentId > -1) {
                 tracker_pair.second->save_current_pose(
-                    //a, b, c, qw, qx, qy, qz, time
+                    // From Z-up: Pos(x, y, z), Rot(x, y, z, w)
+                    // To Y-up:   Pos(x, z, y), Rot(x, z, -y, w) 
                     segment_data.position[0],
-                    segment_data.position[1],
                     segment_data.position[2],
+                    segment_data.position[1],
                     segment_data.orientation[0],
-                    segment_data.orientation[1],
                     segment_data.orientation[2],
+                    -segment_data.orientation[1],
                     segment_data.orientation[3],
                     quat_msg->frameTime()
                 );
