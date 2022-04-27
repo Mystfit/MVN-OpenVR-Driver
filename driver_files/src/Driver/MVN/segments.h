@@ -37,7 +37,7 @@ const std::unordered_map<Segment, std::string> SegmentName = {
 	{Pelvis, "Pelvis"},
 	{L5, "L5"},
 	{L3, "L3"},
-	{T12, "12"},
+	{T12, "T12"},
 	{T8, "T8"},
 	{Neck, "Neck"},
 	{Head, "Head"},

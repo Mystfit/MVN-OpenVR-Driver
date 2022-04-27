@@ -466,7 +466,11 @@ vr::EVRInitError MVNDriver::TrackerDevice::Activate(uint32_t unObjectId)
     GetDriver()->GetProperties()->SetInt32Property(props, vr::Prop_ControllerRoleHint_Int32, vr::ETrackedControllerRole::TrackedControllerRole_OptOut);
 
     // Set up a render model path
-    GetDriver()->GetProperties()->SetStringProperty(props, vr::Prop_RenderModelName_String, "{htc}/rendermodels/vr_tracker_vive_1_0");
+    std::string rendermodel = std::string("{MVN}/rendermodels/XSens/") + this->serial_; //"{htc}/rendermodels/vr_tracker_vive_1_0"; 
+    Log("Tracker rendermodel path: " + rendermodel);
+    //std::string rendermodel = std::string("{htc}/rendermodels/vr_tracker_vive_1_0"); //"{htc}/rendermodels/vr_tracker_vive_1_0"; 
+
+    GetDriver()->GetProperties()->SetStringProperty(props, vr::Prop_RenderModelName_String, rendermodel.c_str());
 
     // Set controller profile
     //GetDriver()->GetProperties()->SetStringProperty(props, vr::Prop_InputProfilePath_String, "{MVN}/input/example_tracker_bindings.json");
