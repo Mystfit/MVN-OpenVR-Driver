@@ -321,55 +321,48 @@ void MVNDriver::VRDriver::ReceiveMVNData(StreamingProtocol protocol, const Datag
 {
     if (protocol == StreamingProtocol::SPPoseQuaternion) {
         const QuaternionDatagram* quat_msg = static_cast<const QuaternionDatagram*>(message);
-        //x, z, -y, w
-
 
         linalg::mat<float, 4, 4> ZtoYupMatrix(
-            linalg::vec<float, 4>(0.0f, 0.0f, 1.0f, 0.0f),
+            linalg::vec<float, 4>(0, 0, 1, 0),
             linalg::vec<float, 4>(1, 0, 0, 0),
             linalg::vec<float, 4>(0, 1, 0, 0),
             linalg::vec<float, 4>(0, 0, 0, 1)
         );
-        linalg::vec<float, 3> DefaultScale(1.0f);
+        linalg::mat<float, 4, 4> ZtoYUpInv = linalg::inverse(ZtoYupMatrix);
 
+        linalg::vec<float, 3> DefaultScale(1.0f);
 
         for (auto tracker_pair : trackers_) {
             auto segment_data = quat_msg->GetSegmentData(tracker_pair.first);
             if (segment_data.segmentId > -1) {
 
-
+                linalg::vec <float, 4> rot(segment_data.orientation[1], segment_data.orientation[2], segment_data.orientation[3], segment_data.orientation[0]);
+                linalg::vec <float, 4> rot_norm = linalg::normalize(rot);
                 auto mocapMatrix = linalg::pose_matrix(
-                    linalg::vec<float, 4>(segment_data.orientation[0], segment_data.orientation[1], segment_data.orientation[2], segment_data.orientation[3]),
+                    rot_norm,
                     linalg::vec<float, 3>(segment_data.position[0], segment_data.position[1], segment_data.position[2])
                 );
-                linalg::mat<float, 4, 4> vrMatrix = ZtoYupMatrix * mocapMatrix * linalg::inverse(ZtoYupMatrix);
 
-                float w, x, y, z;
-                w = sqrt(std::max(0.0f, 1.0f + vrMatrix.x.x + vrMatrix.y.y + vrMatrix.z.z)) / 2;
-                x = sqrt(std::max(0.0f, 1.0f + vrMatrix.x.x - vrMatrix.y.y - vrMatrix.z.z)) / 2;
-                y = sqrt(std::max(0.0f, 1.0f - vrMatrix.x.x + vrMatrix.y.y - vrMatrix.z.z)) / 2;
-                z  = sqrt(std::max(0.0f, 1.0f - vrMatrix.x.x - vrMatrix.y.y + vrMatrix.z.z)) / 2;
-                x *= signbit(x * (vrMatrix.z.y - vrMatrix.y.z));
-                y *= signbit(y * (vrMatrix.x.z - vrMatrix.x.z));
-                z *= signbit(z * (vrMatrix.y.x - vrMatrix.x.y));
+                float qw, qx, qy, qz, tx, ty, tz;
+                linalg::mat<float, 4, 4> vrMatrix = linalg::mul(linalg::mul(ZtoYupMatrix, mocapMatrix), ZtoYUpInv);
+                tx = vrMatrix.w.x;
+                ty = vrMatrix.w.y;
+                tz = vrMatrix.w.z;
+
+                linalg::vec<float, 4> rotQuat = linalg::rotation_quat(linalg::mat<float, 3, 3>(
+                    linalg::vec<float, 3>(vrMatrix.x.x, vrMatrix.x.y, vrMatrix.x.z),
+                    linalg::vec<float, 3>(vrMatrix.y.x, vrMatrix.y.y, vrMatrix.y.z),
+                    linalg::vec<float, 3>(vrMatrix.z.x, vrMatrix.z.y, vrMatrix.z.z)
+                ));
 
                 tracker_pair.second->save_current_pose(
-                    // From Z-up: Pos(x, y, z), Rot(x, y, z, w)
-                    // To Y-up:   Pos(x, z, y), Rot(x, z, -y, w) 
-                    segment_data.position[0],
-                    segment_data.position[2],
-                    segment_data.position[1],
-                    segment_data.orientation[0],
-                    segment_data.orientation[2],
-                    -segment_data.orientation[1],
-                    segment_data.orientation[3],
-                   /* vrMatrix.w.x,
-                    vrMatrix.w.y,
-                    vrMatrix.w.z,
-                    w,
-                    x,
-                    y,
-                    z,*/
+                    tx,
+                    ty - 1.8,
+                    tz,
+                    rotQuat.w,
+                    rotQuat.x,
+                    rotQuat.y,
+                    rotQuat.z,
                     quat_msg->frameTime()
                 );
             }
