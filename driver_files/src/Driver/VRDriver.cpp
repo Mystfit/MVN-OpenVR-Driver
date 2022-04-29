@@ -67,7 +67,7 @@ vr::EVRInitError MVNDriver::VRDriver::Init(vr::IVRDriverContext* pDriverContext)
             translation_origin[0] = -translation[0].get<float>();
             translation_origin[1] = -translation[1].get<float>();
             translation_origin[2] = -translation[2].get<float>();
-            yaw_origin = universe["standing"]["yaw"].get<float>();
+            yaw_origin = universe["standing"]["yaw"].get<float>() + 3.14156;
             Log("Origin X: " + std::to_string(translation_origin[0]) + " Origin Y: " + std::to_string(translation_origin[1]) + " Origin Z: " + std::to_string(translation_origin[2]));
         }
     }
@@ -349,6 +349,10 @@ void MVNDriver::VRDriver::ReceiveMVNData(StreamingProtocol protocol, const Datag
     if (protocol == StreamingProtocol::SPPoseQuaternion) {
         const QuaternionDatagram* quat_msg = static_cast<const QuaternionDatagram*>(message);
 
+       /* linalg::vec<float, 4>(0, 0, 1, 0),
+            linalg::vec<float, 4>(1, 0, 0, 0),
+            linalg::vec<float, 4>(0, 1, 0, 0),
+            linalg::vec<float, 4>(0, 0, 0, 1)*/
         linalg::mat<float, 4, 4> ZtoYupMatrix(
             linalg::vec<float, 4>(0, 0, 1, 0),
             linalg::vec<float, 4>(1, 0, 0, 0),
@@ -440,15 +444,10 @@ void MVNDriver::VRDriver::LeaveStandby()
 void MVNDriver::VRDriver::PopulateTrackers()
 {
     for (auto segment : SegmentName) {
-        auto segment_hint = GetSettingsSegmentTarget(segment.first);
-        if (segment_hint != "disabled") {
-            std::string name, role;
-
-            if (name == "")
-            {
-                name = "UnnamedTracker" + std::to_string(this->trackers_.size());
-                role = "TrackerRole_Waist";        //should be "vive_tracker_left_foot" or "vive_tracker_left_foot" or "vive_tracker_waist"
-            }
+        std::string segment_hint = GetSettingsSegmentTarget(segment.first);
+        if (segment_hint.compare("disabled")) {
+            std::string name = SegmentName.at(segment.first);
+            std::string role = segment.second;
 
             auto addtracker = std::make_shared<TrackerDevice>(segment.second, segment_hint);
             this->AddDevice(addtracker);
@@ -468,10 +467,15 @@ std::string MVNDriver::VRDriver::GetSettingsSegmentTarget(Segment segment)
 
     std::string str_value;
     str_value.reserve(1024);
-    vr::VRSettings()->GetString(settings_key_.c_str(), key.c_str(), str_value.data(), 1024, &err);
+    char* buf = (char*)malloc(sizeof(char) * 1024);
+    vr::VRSettings()->GetString(settings_key_.c_str(), key.c_str(), buf, 1024, &err);
+    str_value = std::string(buf);
     if (err == vr::EVRSettingsError::VRSettingsError_None) {
+        str_value.shrink_to_fit();
+        free(buf);
         return str_value;
     }
+    free(buf);
     return "";
 }
 
