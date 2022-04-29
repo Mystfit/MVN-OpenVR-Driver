@@ -37,7 +37,7 @@ namespace MVNDriver {
             virtual void* GetComponent(const char* pchComponentNameAndVersion) override;
             virtual void DebugRequest(const char* pchRequest, char* pchResponseBuffer, uint32_t unResponseBufferSize) override;
             virtual vr::DriverPose_t GetPose() override;
-            virtual void reinit(int msaved, double mtime, double msmooth);
+            virtual void reinit(int msaved, double mtime, double msmooth, double mtranslation_origin[3] = {}, double myaw_origin = 0.0);
 
     private:
         vr::TrackedDeviceIndex_t device_index_ = vr::k_unTrackedDeviceIndexInvalid;
@@ -63,5 +63,9 @@ namespace MVNDriver {
         double max_time = 1;
         double smoothing = 0;
 
+        double translation_origin[3] = {};
+        vr::HmdQuaternion_t rotation_origin;
     };
 };
+
+void eulerToQuaternion(double eulerXYZ[], double* out_quat);

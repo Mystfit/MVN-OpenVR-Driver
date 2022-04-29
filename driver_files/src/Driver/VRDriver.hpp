@@ -65,6 +65,9 @@ namespace MVNDriver {
         int pipeNum = 1;
         double smoothFactor = 0.2;
 
+        double translation_origin[3] = {};
+        double yaw_origin = 0.0;
+
         int tracker_max_saved = 10;
         double tracker_max_time = 1;
         double tracker_smoothing = 0;

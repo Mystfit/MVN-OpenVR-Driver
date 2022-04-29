@@ -4,10 +4,15 @@
 #include <Driver/ControllerDevice.hpp>
 #include <Driver/TrackingReferenceDevice.hpp>
 
+#include "json.hpp"
+#include <filesystem>
+#include <fstream>
 #include <vector>
 #include <math.h>
 #include <linalg.h>
 #include <Driver/MVN/quaterniondatagram.h>
+
+using namespace nlohmann;
 
 vr::EVRInitError MVNDriver::VRDriver::Init(vr::IVRDriverContext* pDriverContext)
 {
@@ -36,8 +41,6 @@ vr::EVRInitError MVNDriver::VRDriver::Init(vr::IVRDriverContext* pDriverContext)
 
     //Log("AprilTag Driver Loaded Successfully");
 
-    PopulateTrackers();
-
     std::string hostDestinationAddress = "localhost";
     int port = 9763;
     mvn_udp_server = std::make_unique<UdpServer>(
@@ -48,6 +51,30 @@ vr::EVRInitError MVNDriver::VRDriver::Init(vr::IVRDriverContext* pDriverContext)
         });
     Log("Created MVN listen server");
 
+    // Load chaperone info HACKY HACKY HACK
+    std::filesystem::path chaperone_config("C:/Program Files (x86)/Steam/config/chaperone_info.vrchap");
+    if (std::filesystem::exists(chaperone_config)) {
+        std::fstream file;
+        file.open(chaperone_config, std::fstream::in);
+        json chaperone_data;
+        file >> chaperone_data;
+
+        for (auto universe : chaperone_data["universes"]) {
+            if (!universe.contains("standing")) {
+                continue;
+            }
+            auto translation = universe["standing"]["translation"];
+            translation_origin[0] = -translation[0].get<float>();
+            translation_origin[1] = -translation[1].get<float>();
+            translation_origin[2] = -translation[2].get<float>();
+            yaw_origin = universe["standing"]["yaw"].get<float>();
+            Log("Origin X: " + std::to_string(translation_origin[0]) + " Origin Y: " + std::to_string(translation_origin[1]) + " Origin Z: " + std::to_string(translation_origin[2]));
+        }
+    }
+
+    PopulateTrackers();
+
+  
 	return vr::VRInitError_None;
 }
 
@@ -357,7 +384,7 @@ void MVNDriver::VRDriver::ReceiveMVNData(StreamingProtocol protocol, const Datag
 
                 tracker_pair.second->save_current_pose(
                     tx,
-                    ty - 1.8,
+                    ty,
                     tz,
                     rotQuat.w,
                     rotQuat.x,
@@ -426,7 +453,7 @@ void MVNDriver::VRDriver::PopulateTrackers()
             auto addtracker = std::make_shared<TrackerDevice>(segment.second, segment_hint);
             this->AddDevice(addtracker);
             this->trackers_.emplace(segment.first, addtracker);
-            addtracker->reinit(tracker_max_saved, tracker_max_time, tracker_smoothing);
+            addtracker->reinit(tracker_max_saved, tracker_max_time, tracker_smoothing, translation_origin, yaw_origin);
 
             Log("Added tracker " + segment.second + " with role " + segment_hint);
         }

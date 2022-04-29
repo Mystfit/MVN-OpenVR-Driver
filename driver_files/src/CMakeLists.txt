@@ -11,6 +11,7 @@ set(DRIVER_HEADERS
 	"${CMAKE_CURRENT_LIST_DIR}/Driver/TrackerDevice.hpp"
 	"${CMAKE_CURRENT_LIST_DIR}/Driver/TrackingReferenceDevice.hpp"
 	"${CMAKE_CURRENT_LIST_DIR}/Driver/VRDriver.hpp"
+	"${CMAKE_CURRENT_LIST_DIR}/Driver/json.hpp"
 )
 set(DRIVER_SOURCES
 	"${CMAKE_CURRENT_LIST_DIR}/Driver/ControllerDevice.cpp"

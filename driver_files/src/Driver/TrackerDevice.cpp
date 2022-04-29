@@ -15,6 +15,23 @@ void normalizeQuat(double pose[])
     pose[6] /= mag;
 }
 
+void eulerToQuaternion(double eulerXYZ[], double* out_quat){
+    double c1 = cos(eulerXYZ[0] / 2.0);
+    double c2 = cos(eulerXYZ[1] / 2.0);
+    double c3 = cos(eulerXYZ[2] / 2.0);
+    double s1 = sin(eulerXYZ[0] / 2.0);
+    double s2 = sin(eulerXYZ[1] / 2.0);
+    double s3 = sin(eulerXYZ[2] / 2.0);
+    double x = s1 * c2 * c3 + c1 * s2 * s3;
+    double y = c1 * s2 * c3 - s1 * c2 * s3;
+    double z = c1 * c2 * s3 + s1 * s2 * c3;
+    double w = c1 * c2 * c3 - s1 * s2 * s3;
+    out_quat[0] = x;
+    out_quat[1] = y;
+    out_quat[2] = z;
+    out_quat[3] = w;
+};
+
 MVNDriver::TrackerDevice::TrackerDevice(std::string serial, std::string role):
     serial_(serial),
     role_(role)
@@ -28,7 +45,7 @@ std::string MVNDriver::TrackerDevice::GetSerial()
     return this->serial_;
 }
 
-void MVNDriver::TrackerDevice::reinit(int msaved, double mtime, double msmooth)
+void MVNDriver::TrackerDevice::reinit(int msaved, double mtime, double msmooth, double mtranslation_origin[3], double myaw_origin)
 {
     if (msaved < 5)     //prevent having too few values to calculate linear interpolation, and prevent crash on 0
         msaved = 5;
@@ -43,6 +60,18 @@ void MVNDriver::TrackerDevice::reinit(int msaved, double mtime, double msmooth)
     prev_positions = temp;
     max_time = mtime;
     smoothing = msmooth;
+
+    translation_origin[0] = mtranslation_origin[0];
+    translation_origin[1] = mtranslation_origin[1];
+    translation_origin[2] = mtranslation_origin[2];
+
+    double euler_rot_origin[3] = { 0.0, myaw_origin, 0.0 };
+    double quat_rot_origin[4] = {};
+    eulerToQuaternion(euler_rot_origin, quat_rot_origin);
+    rotation_origin.w = quat_rot_origin[3];
+    rotation_origin.x = quat_rot_origin[0];
+    rotation_origin.y = quat_rot_origin[1];
+    rotation_origin.z = quat_rot_origin[2];
 
     //Log("Settings changed! " + std::to_string(msaved) + " " + std::to_string(mtime));
 }
@@ -153,6 +182,14 @@ void MVNDriver::TrackerDevice::Update()
     //pose.vecVelocity[1] = (pose.vecPosition[1] - previous_position[1]) / pose_time_delta_seconds;
     //pose.vecVelocity[2] = (pose.vecPosition[2] - previous_position[2]) / pose_time_delta_seconds;
 
+    // Set world origin from universe standing position
+    pose.vecWorldFromDriverTranslation[0] = translation_origin[0];
+    pose.vecWorldFromDriverTranslation[1] = translation_origin[1];
+    pose.vecWorldFromDriverTranslation[2] = translation_origin[2];
+
+    // Set world rotation from universe yaw 
+    pose.qWorldFromDriverRotation = rotation_origin;
+    
     // Post pose
     GetDriver()->GetDriverHost()->TrackedDevicePoseUpdated(this->device_index_, pose, sizeof(vr::DriverPose_t));
     this->last_pose_ = pose;
