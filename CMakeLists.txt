@@ -2,13 +2,11 @@ cmake_minimum_required(VERSION "3.7.1")
 
 cmake_policy(SET CMP0079 NEW)
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake;${CMAKE_MODULE_PATH}")
+set(CMAKE_CXX_STANDARD 17)
 
 # Solution
-project("MVNAnimate_SteamVR_Driver")
+project("MocapSuit_SteamVR_Driver")
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
-
-# Deps
-set(OPENVR_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/libraries/openvr/headers")
 
 set(SIZEOF_VOIDP ${CMAKE_SIZEOF_VOID_P})
 if(CMAKE_SIZEOF_VOID_P EQUAL 8)
@@ -26,9 +24,7 @@ elseif(APPLE)
 endif()
 
 set(SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
+set(DEPENDANT_LIB_DIR ${SOURCE_DIR}/libraries)
+set(DRIVER_RESOURCE_DEST ${CMAKE_CURRENT_BINARY_DIR}/driver/$<CONFIG>)
 
-# Xsens types library
-find_package(xstypes)
-find_library(OPENVR_LIB openvr_api HINTS "${CMAKE_CURRENT_SOURCE_DIR}/libraries/openvr/lib/${PLATFORM_NAME}${PROCESSOR_ARCH}/" NO_DEFAULT_PATH )
-
-add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/driver_files/src")
+add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/src")

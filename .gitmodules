@@ -4,3 +4,6 @@
 [submodule "libraries/openvr"]
 	path = libraries/openvr
 	url = https://github.com/ValveSoftware/openvr.git
+[submodule "libraries/PerceptionNeuronSDK"]
+	path = libraries/PerceptionNeuronSDK
+	url = https://github.com/pnmocap/MocapApi.git
