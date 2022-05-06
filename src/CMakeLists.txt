@@ -54,5 +54,6 @@ add_custom_command(
     COMMAND "$<$<CONFIG:Debug,RelWithDebInfo>:${PDB_COPY_COMMAND}>"
     DEPENDS ${DRIVER_DLL_SRC} ${DRIVER_DLL_DEST}/$<TARGET_FILE_NAME:${DRIVER_TARGET}>
     VERBATIM
+    COMMENT "Copying dll to ${DRIVER_DLL_DEST}"
     COMMAND_EXPAND_LISTS
 )

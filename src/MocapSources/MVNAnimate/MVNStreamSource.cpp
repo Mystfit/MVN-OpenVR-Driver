@@ -5,9 +5,9 @@
 #include <PoseMath.hpp>
 #include <linearsegmentkinematicsdatagram.h>
 
-void MVNStreamSource::init(std::shared_ptr<MocapDriver::IVRDriver> owning_Driver)
+void MVNStreamSource::init(MocapDriver::IVRDriver* owning_driver)
 {
-	driver_ = owning_Driver;
+	driver_ = owning_driver;
 
     int port = 9763;
     std::string hostDestinationAddress = "localhost";
@@ -28,9 +28,9 @@ void MVNStreamSource::PopulateTrackers()
             std::string name = SegmentName.at(segment.first);
             std::string role = segment.second;
 
-            auto tracker = GetDriver()->CreateTrackerDevice(name, role);
+            auto tracker = GetDriver()->CreateTrackerDevice(name, role, this, segment.first);
 
-            std::string rendermodel = std::string("{MVN}/rendermodels/XSens/") + tracker->GetSerial();
+            std::string rendermodel = std::string("{Mocap}/rendermodels/XSens/") + tracker->GetSerial();
             GetDriver()->Log("Tracker rendermodel path: " + rendermodel);
 
             trackers_.emplace(segment.first, tracker);
@@ -38,7 +38,7 @@ void MVNStreamSource::PopulateTrackers()
     }
 }
 
-std::shared_ptr<MocapDriver::IVRDriver> MVNStreamSource::GetDriver()
+MocapDriver::IVRDriver* MVNStreamSource::GetDriver()
 {
     return driver_;
 }
@@ -49,12 +49,34 @@ PoseSample MVNStreamSource::GetNextPose()
     return PoseSample(completed_pose_);
 }
 
+void MVNStreamSource::QueuePose(const PoseSample& pose)
+{
+    std::scoped_lock<std::mutex> lock(pose_update_mtx);
+    completed_pose_ = pose;
+}
+
+std::string MVNStreamSource::GetRenderModelPath(int segmentIndex)
+{
+    // Relative to "{Mocap}/rendermodels"
+    return std::string("XSens/") + SegmentName.at((Segment)segmentIndex); //"{htc}/rendermodels/vr_tracker_vive_1_0"; 
+}
 
 std::string MVNStreamSource::GetSettingsSegmentTarget(Segment segment)
 {
     std::string prefix = "Role_";
     std::string key = prefix + SegmentName.at(segment);
-    return std::get<std::string>(GetDriver()->GetSettingsValue(key));
+
+    vr::EVRSettingsError err = vr::EVRSettingsError::VRSettingsError_None;
+    char* buf = (char*)malloc(sizeof(char) * 1024);
+    vr::VRSettings()->GetString("MVN", key.c_str(), buf, 1024, &err);
+    std::string str_value(buf);
+    free(buf);
+
+    if (err == vr::EVRSettingsError::VRSettingsError_None) {
+        return str_value;
+    }
+
+    return "";
 }
 
 void MVNStreamSource::ReceiveMVNData(StreamingProtocol protocol, const Datagram* message)
@@ -65,7 +87,10 @@ void MVNStreamSource::ReceiveMVNData(StreamingProtocol protocol, const Datagram*
     // Create a new pose if it isn't already being filled
     if (incomplete_poses_.find(msg_id) == incomplete_poses_.end()) {
         incomplete_poses_.emplace(msg_id, PoseSample{ msg_id, std::vector<SegmentSample>(SegmentName.size()) });
+        
+#ifdef MVN_SUPPORTS_LINEAR_KINEMATICS 
         pose_is_complete = false;
+#endif
     } 
 
     for (auto tracker_pair : trackers_) {
@@ -124,10 +149,7 @@ void MVNStreamSource::ReceiveMVNData(StreamingProtocol protocol, const Datagram*
     
     // Save stored pose
     if (pose_is_complete) {
-        {
-            std::scoped_lock<std::mutex> lock(pose_update_mtx);
-            completed_pose_ = incomplete_poses_[msg_id];
-        }
+        QueuePose(incomplete_poses_[msg_id]);
         incomplete_poses_.erase(msg_id);
     }
 }

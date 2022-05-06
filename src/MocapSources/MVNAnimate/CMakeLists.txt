@@ -68,7 +68,7 @@ set(MOCAP_PRIVATE_LIBS
 
 # Copy XSens DLL dependencies to driver
 set(DRIVER_DLL_DEST ${DRIVER_RESOURCE_DEST}/bin/${PLATFORM_NAME}${PROCESSOR_ARCH})
-set(XSENSE_DLL_DEST ${DRIVER_DLL_DEST}/xstypes.dll)
+set(XSENSE_DLL_DEST ${DRIVER_DLL_DEST}/xstypes64.dll)
 add_custom_command(
 	POST_BUILD
 	TARGET ${MVNANIMATE_TARGET}

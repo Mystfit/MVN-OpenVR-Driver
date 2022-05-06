@@ -24,7 +24,7 @@ namespace MocapDriver {
         /// <returns>All managed devices</returns>
         virtual std::vector<std::shared_ptr<IVRDevice>> GetDevices() = 0;
 
-        virtual std::shared_ptr<IVRDevice> CreateTrackerDevice(std::string serial, std::string role, IMocapStreamSource* motionSource = nullptr) = 0;
+        virtual std::shared_ptr<IVRDevice> CreateTrackerDevice(std::string serial, std::string role, IMocapStreamSource* motionSource = nullptr, int segmentIndex = -1) = 0;
 
         /// <summary>
         /// Returns all OpenVR events that happened on the current frame

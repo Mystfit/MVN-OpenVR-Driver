@@ -1,6 +1,6 @@
 {
 	"alwaysActivate": true,
-	"name" : "MVN",
+	"name" : "Mocap",
 	"directory" : "",
 	"resourceOnly" : false
 }

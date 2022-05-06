@@ -20,8 +20,10 @@ namespace MocapDriver {
 
 class IMocapStreamSource {
 public:
-	virtual void init(std::shared_ptr<MocapDriver::IVRDriver> owning_driver) = 0;
+	virtual void init(MocapDriver::IVRDriver* owning_driver) = 0;
+	virtual std::string GetRenderModelPath(int segmentIndex) = 0;
 	virtual void PopulateTrackers() = 0;
-	virtual std::shared_ptr<MocapDriver::IVRDriver> GetDriver() = 0;
+	virtual MocapDriver::IVRDriver* GetDriver() = 0;
+	virtual void QueuePose(const PoseSample& pose) = 0;
 	virtual PoseSample GetNextPose() = 0;
 };

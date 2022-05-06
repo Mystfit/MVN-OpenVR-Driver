@@ -28,6 +28,13 @@ vr::EVRInitError VRDriver::Init(vr::IVRDriverContext* pDriverContext)
     }
     
     LoadUniverseOrigin();
+
+    // Create MVN stream source explicly
+    // TODO: Load from config
+    std::unique_ptr<MVNStreamSource> mvnStreamSrc = std::make_unique<MVNStreamSource>();
+    mvnStreamSrc->init(this);
+    mvnStreamSrc->PopulateTrackers();
+    streamSources_.push_back(std::move(mvnStreamSrc));
   
 	return vr::VRInitError_None;
 }
@@ -47,11 +54,15 @@ void MocapDriver::VRDriver::LoadUniverseOrigin()
                 continue;
             }
             auto translation = universe["standing"]["translation"];
+
+            // Translation is a directional vector from the lighthouse to the HMD, so invert the direction to get the offset
             origin_.translation[0] = -translation[0].get<float>();
             origin_.translation[1] = -translation[1].get<float>();
             origin_.translation[2] = -translation[2].get<float>();
+
+            // Same offset needed with the yaw, rotate it by PI radians
             origin_.yaw = universe["standing"]["yaw"].get<float>() + M_PI;
-            Log("Origin X: " + std::to_string(origin_.translation[0]) + " Origin Y: " + std::to_string(origin_.translation[1]) + " Origin Z: " + std::to_string(origin_.translation[2]));
+            Log("Chaperone Origin X: " + std::to_string(origin_.translation[0]) + " Origin Y: " + std::to_string(origin_.translation[1]) + " Origin Z: " + std::to_string(origin_.translation[2]) + " Origin Yaw: " + std::to_string(origin_.yaw) );
         }
     }
 }
@@ -113,10 +124,11 @@ std::chrono::milliseconds VRDriver::GetLastFrameTime()
     return this->frame_timing_;
 }
 
-std::shared_ptr<IVRDevice> MocapDriver::VRDriver::CreateTrackerDevice(std::string serial, std::string role, IMocapStreamSource* motionSource)
+std::shared_ptr<IVRDevice> MocapDriver::VRDriver::CreateTrackerDevice(std::string serial, std::string role, IMocapStreamSource* motionSource, int segmentIndex)
 {
     auto addtracker = std::make_shared<TrackerDevice>(serial, role);
     addtracker->SetMotionSource(motionSource);
+    addtracker->SetSegmentIndex(segmentIndex);
 
     AddDevice(addtracker);
     addtracker->reinit(tracker_max_saved, tracker_max_time, tracker_smoothing, origin_);
@@ -174,7 +186,7 @@ SettingsValue VRDriver::GetSettingsValue(std::string key)
     str_value = std::string(buf);
     free(buf);
     if (err == vr::EVRSettingsError::VRSettingsError_None) {
-        return "";
+        return str_value;
     }
     err = vr::EVRSettingsError::VRSettingsError_None;
 

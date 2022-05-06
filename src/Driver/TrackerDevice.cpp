@@ -8,7 +8,8 @@ TrackerDevice::TrackerDevice(std::string serial, std::string role):
     role_(role),
     motionSource_(nullptr),
     _pose_timestamp(0),
-    rotation_origin()
+    rotation_origin(),
+    segmentIndex_(-1)
 {
     this->last_pose_ = MakeDefaultPose();
     this->isSetup = false;
@@ -53,6 +54,16 @@ void TrackerDevice::reinit(int msaved, double mtime, double msmooth, UniverseOri
 void MocapDriver::TrackerDevice::SetMotionSource(IMocapStreamSource* motionSource)
 {
     motionSource_ = motionSource;
+}
+
+void MocapDriver::TrackerDevice::SetSegmentIndex(int segmentIndex)
+{
+    segmentIndex_ = segmentIndex;
+}
+
+int MocapDriver::TrackerDevice::GetSegmentIndex()
+{
+    return segmentIndex_;
 }
 
 IMocapStreamSource* MocapDriver::TrackerDevice::GetMotionSource()
@@ -102,15 +113,20 @@ void TrackerDevice::Update()
     auto source = GetMotionSource();
     if (source) {
         auto pose = source->GetNextPose();
+        auto segmentIndex = GetSegmentIndex();
+        if (segmentIndex < 0 || !pose.segments.size()) {
+            return;
+        }
 
-        tracker_pose.vecPosition[0] = pose.segments[segment].translation[0];
-        tracker_pose.vecPosition[1] = pose.segments[segment].translation[1];
-        tracker_pose.vecPosition[2] = pose.segments[segment].translation[2];
+        tracker_pose.vecPosition[0] = pose.segments[segmentIndex].translation[0];
+        tracker_pose.vecPosition[1] = pose.segments[segmentIndex].translation[1];
+        tracker_pose.vecPosition[2] = pose.segments[segmentIndex].translation[2];
 
-        tracker_pose.qRotation.w = pose.segments[segment].rotation_quat[0];
-        tracker_pose.qRotation.x = pose.segments[segment].rotation_quat[1];
-        tracker_pose.qRotation.y = pose.segments[segment].rotation_quat[2];
-        tracker_pose.qRotation.z = pose.segments[segment].rotation_quat[3];
+        tracker_pose.qRotation.w = pose.segments[segmentIndex].rotation_quat[0];
+        tracker_pose.qRotation.x = pose.segments[segmentIndex].rotation_quat[1];
+        tracker_pose.qRotation.y = pose.segments[segmentIndex].rotation_quat[2];
+        tracker_pose.qRotation.z = pose.segments[segmentIndex].rotation_quat[3];
+
 
         // Set world origin from universe standing position
         tracker_pose.vecWorldFromDriverTranslation[0] = translation_origin[0];
@@ -119,13 +135,12 @@ void TrackerDevice::Update()
 
         // Set world rotation from universe yaw 
         tracker_pose.qWorldFromDriverRotation = rotation_origin;
-
     }
 
 
     // Copy the previous position data
-    //double previous_position[3] = { 0 };
-    //std::copy(std::begin(pose.vecPosition), std::end(pose.vecPosition), std::begin(previous_position));
+    double previous_position[3] = { 0 };
+    std::copy(std::begin(tracker_pose.vecPosition), std::end(tracker_pose.vecPosition), std::begin(previous_position));
 
     //double next_pose[7];
     //if (get_next_pose(0, next_pose) != 0)
@@ -173,22 +188,20 @@ void TrackerDevice::Update()
     //pose.qRotation.y /= mag;
     //pose.qRotation.z /= mag;
 
-    /*
+    
     if (pose_time_delta_seconds > 0)            //unless we get two pose updates at the same time, update velocity so steamvr can do some interpolation
     {
-        pose.vecVelocity[0] = 0.8 * pose.vecVelocity[0] + 0.2 * (pose.vecPosition[0] - previous_position[0]) / pose_time_delta_seconds;
-        pose.vecVelocity[1] = 0.8 * pose.vecVelocity[1] + 0.2 * (pose.vecPosition[1] - previous_position[1]) / pose_time_delta_seconds;
-        pose.vecVelocity[2] = 0.8 * pose.vecVelocity[2] + 0.2 * (pose.vecPosition[2] - previous_position[2]) / pose_time_delta_seconds;
+        tracker_pose.vecVelocity[0] = 0.8 * tracker_pose.vecVelocity[0] + 0.2 * (tracker_pose.vecPosition[0] - previous_position[0]) / pose_time_delta_seconds;
+        tracker_pose.vecVelocity[1] = 0.8 * tracker_pose.vecVelocity[1] + 0.2 * (tracker_pose.vecPosition[1] - previous_position[1]) / pose_time_delta_seconds;
+        tracker_pose.vecVelocity[2] = 0.8 * tracker_pose.vecVelocity[2] + 0.2 * (tracker_pose.vecPosition[2] - previous_position[2]) / pose_time_delta_seconds;
     }
-    pose.poseTimeOffset = this->wantedTimeOffset;
-    
-    */
+
+    //pose.poseTimeOffset = this->wantedTimeOffset;
 
     tracker_pose.poseTimeOffset = 0;
-
-    //pose.vecVelocity[0] = (pose.vecPosition[0] - previous_position[0]) / pose_time_delta_seconds;
-    //pose.vecVelocity[1] = (pose.vecPosition[1] - previous_position[1]) / pose_time_delta_seconds;
-    //pose.vecVelocity[2] = (pose.vecPosition[2] - previous_position[2]) / pose_time_delta_seconds;
+    //tracker_pose.vecVelocity[0] = (tracker_pose.vecPosition[0] - previous_position[0]) / pose_time_delta_seconds;
+    //tracker_pose.vecVelocity[1] = (tracker_pose.vecPosition[1] - previous_position[1]) / pose_time_delta_seconds;
+    //tracker_pose.vecVelocity[2] = (tracker_pose.vecPosition[2] - previous_position[2]) / pose_time_delta_seconds;
 
     // Post pose
     GetDriver()->GetDriverHost()->TrackedDevicePoseUpdated(this->device_index_, tracker_pose, sizeof(vr::DriverPose_t));
@@ -201,6 +214,7 @@ void TrackerDevice::Log(std::string message)
     vr::VRDriverLog()->Log(message_endl.c_str());
 }
 
+/*
 int TrackerDevice::get_next_pose(double time_offset, double pred[])
 {
     int statuscode = 0;
@@ -417,60 +431,15 @@ void TrackerDevice::save_current_pose(double a, double b, double c, double w, do
     prev_positions[i][5] = x;
     prev_positions[i][6] = y;
     prev_positions[i][7] = z;
-    /*                                                 //for debugging
-    Log("------------------------------------------------");
-    for (int i = 0; i < max_saved; i++)
-    {
-        Log("Time: " + std::to_string(prev_positions[i][0]));
-        Log("Position x: " + std::to_string(prev_positions[i][1]));
-    }
-    */
+                                                     //for debugging
+    //Log("------------------------------------------------");
+    //for (int i = 0; i < max_saved; i++)
+    //{
+    //    Log("Time: " + std::to_string(prev_positions[i][0]));
+    //    Log("Position x: " + std::to_string(prev_positions[i][1]));
+    //}
+    //
     return;
-}
-
-/*
-void TrackerDevice::UpdatePos(double a, double b, double c, double time, double smoothing)
-{
-    this->wantedPose[0] = (1 - smoothing) * this->wantedPose[0] + smoothing * a;
-    this->wantedPose[1] = (1 - smoothing) * this->wantedPose[1] + smoothing * b;
-    this->wantedPose[2] = (1 - smoothing) * this->wantedPose[2] + smoothing * c;
-
-    this->wantedTimeOffset = time;
-
-}
-
-void TrackerDevice::UpdateRot(double qw, double qx, double qy, double qz, double time, double smoothing)
-{
-    //lerp
-    double dot = qx * this->wantedPose[4] + qy * this->wantedPose[5] + qz * this->wantedPose[6] + qw * this->wantedPose[3];
-
-    if (dot < 0)
-    {
-        this->wantedPose[3] = smoothing * qw - (1 - smoothing) * this->wantedPose[3];
-        this->wantedPose[4] = smoothing * qx - (1 - smoothing) * this->wantedPose[4];
-        this->wantedPose[5] = smoothing * qy - (1 - smoothing) * this->wantedPose[5];
-        this->wantedPose[6] = smoothing * qz - (1 - smoothing) * this->wantedPose[6];
-    }
-    else
-    {
-        this->wantedPose[3] = smoothing * qw + (1 - smoothing) * this->wantedPose[3];
-        this->wantedPose[4] = smoothing * qx + (1 - smoothing) * this->wantedPose[4];
-        this->wantedPose[5] = smoothing * qy + (1 - smoothing) * this->wantedPose[5];
-        this->wantedPose[6] = smoothing * qz + (1 - smoothing) * this->wantedPose[6];
-    }
-    //normalize
-    double mag = sqrt(this->wantedPose[3] * this->wantedPose[3] +
-        this->wantedPose[4] * this->wantedPose[4] +
-        this->wantedPose[5] * this->wantedPose[5] +
-        this->wantedPose[6] * this->wantedPose[6]);
-
-    this->wantedPose[3] /= mag;
-    this->wantedPose[4] /= mag;
-    this->wantedPose[5] /= mag;
-    this->wantedPose[6] /= mag;
-
-    this->wantedTimeOffset = time;
-
 }
 */
 
@@ -497,43 +466,41 @@ vr::EVRInitError TrackerDevice::Activate(uint32_t unObjectId)
     GetDriver()->GetProperties()->SetUint64Property(props, vr::Prop_CurrentUniverseId_Uint64, 3);
     
     // Set up a model "number" (not needed but good to have)
-    GetDriver()->GetProperties()->SetStringProperty(props, vr::Prop_ModelNumber_String, "MVN_tracker");
+    GetDriver()->GetProperties()->SetStringProperty(props, vr::Prop_ModelNumber_String, "Mocap_tracker");
 
     // Opt out of hand selection
     GetDriver()->GetProperties()->SetInt32Property(props, vr::Prop_ControllerRoleHint_Int32, vr::ETrackedControllerRole::TrackedControllerRole_OptOut);
 
     // Set up a render model path
-    std::string rendermodel = "{htc}/rendermodels/vr_tracker_vive_1_0"; 
-    Log("Tracker rendermodel path: " + rendermodel);
-    //std::string rendermodel = std::string("{htc}/rendermodels/vr_tracker_vive_1_0"); //"{htc}/rendermodels/vr_tracker_vive_1_0"; 
-
+    std::string rendermodel = "{Mocap}/rendermodels/" + motionSource_->GetRenderModelPath(GetSegmentIndex());
+    Log("Mocap segment rendermodel path: " + rendermodel);
     GetDriver()->GetProperties()->SetStringProperty(props, vr::Prop_RenderModelName_String, rendermodel.c_str());
 
     // Set controller profile
-    //GetDriver()->GetProperties()->SetStringProperty(props, vr::Prop_InputProfilePath_String, "{MVN}/input/example_tracker_bindings.json");
+    //GetDriver()->GetProperties()->SetStringProperty(props, vr::Prop_InputProfilePath_String, "{Mocap}/input/example_tracker_bindings.json");
 
     // Set the icon
-    GetDriver()->GetProperties()->SetStringProperty(props, vr::Prop_NamedIconPathDeviceReady_String, "{MVN}/icons/tracker_ready.png");
+    GetDriver()->GetProperties()->SetStringProperty(props, vr::Prop_NamedIconPathDeviceReady_String, "{Mocap}/icons/tracker_ready.png");
 
-    if (this->serial_.find("MVN") == std::string::npos)
+    if (this->serial_.find("Mocap") == std::string::npos)
     {
-        GetDriver()->GetProperties()->SetStringProperty(props, vr::Prop_NamedIconPathDeviceOff_String, "{MVN}/icons/tracker_not_ready.png");
-        GetDriver()->GetProperties()->SetStringProperty(props, vr::Prop_NamedIconPathDeviceSearching_String, "{MVN}/icons/tracker_not_ready.png");
-        GetDriver()->GetProperties()->SetStringProperty(props, vr::Prop_NamedIconPathDeviceSearchingAlert_String, "{MVN}/icons/tracker_not_ready.png");
-        GetDriver()->GetProperties()->SetStringProperty(props, vr::Prop_NamedIconPathDeviceReadyAlert_String, "{MVN}/icons/tracker_not_ready.png");
-        GetDriver()->GetProperties()->SetStringProperty(props, vr::Prop_NamedIconPathDeviceNotReady_String, "{MVN}/icons/tracker_not_ready.png");
-        GetDriver()->GetProperties()->SetStringProperty(props, vr::Prop_NamedIconPathDeviceStandby_String, "{MVN}/icons/tracker_not_ready.png");
-        GetDriver()->GetProperties()->SetStringProperty(props, vr::Prop_NamedIconPathDeviceAlertLow_String, "{MVN}/icons/tracker_not_ready.png");
+        GetDriver()->GetProperties()->SetStringProperty(props, vr::Prop_NamedIconPathDeviceOff_String, "{Mocap}/icons/tracker_not_ready.png");
+        GetDriver()->GetProperties()->SetStringProperty(props, vr::Prop_NamedIconPathDeviceSearching_String, "{Mocap}/icons/tracker_not_ready.png");
+        GetDriver()->GetProperties()->SetStringProperty(props, vr::Prop_NamedIconPathDeviceSearchingAlert_String, "{Mocap}/icons/tracker_not_ready.png");
+        GetDriver()->GetProperties()->SetStringProperty(props, vr::Prop_NamedIconPathDeviceReadyAlert_String, "{Mocap}/icons/tracker_not_ready.png");
+        GetDriver()->GetProperties()->SetStringProperty(props, vr::Prop_NamedIconPathDeviceNotReady_String, "{Mocap}/icons/tracker_not_ready.png");
+        GetDriver()->GetProperties()->SetStringProperty(props, vr::Prop_NamedIconPathDeviceStandby_String, "{Mocap}/icons/tracker_not_ready.png");
+        GetDriver()->GetProperties()->SetStringProperty(props, vr::Prop_NamedIconPathDeviceAlertLow_String, "{Mocap}/icons/tracker_not_ready.png");
     }
     else
     {
-        GetDriver()->GetProperties()->SetStringProperty(props, vr::Prop_NamedIconPathDeviceOff_String, "{MVN}/icons/MVN_not_ready.png");
-        GetDriver()->GetProperties()->SetStringProperty(props, vr::Prop_NamedIconPathDeviceSearching_String, "{MVN}/icons/MVN_not_ready.png");
-        GetDriver()->GetProperties()->SetStringProperty(props, vr::Prop_NamedIconPathDeviceSearchingAlert_String, "{MVN}/icons/MVN_not_ready.png");
-        GetDriver()->GetProperties()->SetStringProperty(props, vr::Prop_NamedIconPathDeviceReadyAlert_String, "{MVN}/icons/MVN_not_ready.png");
-        GetDriver()->GetProperties()->SetStringProperty(props, vr::Prop_NamedIconPathDeviceNotReady_String, "{MVN}/icons/MVN_not_ready.png");
-        GetDriver()->GetProperties()->SetStringProperty(props, vr::Prop_NamedIconPathDeviceStandby_String, "{MVN}/icons/MVN_not_ready.png");
-        GetDriver()->GetProperties()->SetStringProperty(props, vr::Prop_NamedIconPathDeviceAlertLow_String, "{MVN}/icons/MVN_not_ready.png");
+        GetDriver()->GetProperties()->SetStringProperty(props, vr::Prop_NamedIconPathDeviceOff_String, "{Mocap}/icons/MVN_not_ready.png");
+        GetDriver()->GetProperties()->SetStringProperty(props, vr::Prop_NamedIconPathDeviceSearching_String, "{Mocap}/icons/MVN_not_ready.png");
+        GetDriver()->GetProperties()->SetStringProperty(props, vr::Prop_NamedIconPathDeviceSearchingAlert_String, "{Mocap}/icons/MVN_not_ready.png");
+        GetDriver()->GetProperties()->SetStringProperty(props, vr::Prop_NamedIconPathDeviceReadyAlert_String, "{Mocap}/icons/MVN_not_ready.png");
+        GetDriver()->GetProperties()->SetStringProperty(props, vr::Prop_NamedIconPathDeviceNotReady_String, "{Mocap}/icons/MVN_not_ready.png");
+        GetDriver()->GetProperties()->SetStringProperty(props, vr::Prop_NamedIconPathDeviceStandby_String, "{Mocap}/icons/MVN_not_ready.png");
+        GetDriver()->GetProperties()->SetStringProperty(props, vr::Prop_NamedIconPathDeviceAlertLow_String, "{Mocap}/icons/MVN_not_ready.png");
     }
     /*
     char id = this->serial_.at(12);

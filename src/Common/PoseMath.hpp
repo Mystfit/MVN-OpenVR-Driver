@@ -1,7 +1,7 @@
 #pragma once
 #include <linalg.h>
 
-void normalizeQuat(double pose[]){
+inline void normalizeQuat(double pose[]){
     double mag = sqrt(pose[3] * pose[3] +
         pose[4] * pose[4] +
         pose[5] * pose[5] +
@@ -13,7 +13,7 @@ void normalizeQuat(double pose[]){
     pose[6] /= mag;
 }
 
-void eulerToQuaternion(double eulerXYZ[], double* out_quat){
+inline void eulerToQuaternion(double eulerXYZ[], double* out_quat){
     double c1 = cos(eulerXYZ[0] / 2.0);
     double c2 = cos(eulerXYZ[1] / 2.0);
     double c3 = cos(eulerXYZ[2] / 2.0);
@@ -56,16 +56,13 @@ inline linalg::mat<float, 4, 4> GetTransformMatrixFromVector(linalg::vec<float, 
 // Space conversions
 // -----------------
 
-linalg::mat<float, 4, 4> ZtoYupMatrix(
-    linalg::vec<float, 4>(0, 0, 1, 0),
-    linalg::vec<float, 4>(1, 0, 0, 0),
-    linalg::vec<float, 4>(0, 1, 0, 0),
-    linalg::vec<float, 4>(0, 0, 0, 1)
-);
-linalg::mat<float, 4, 4> ZtoYUpInv = linalg::inverse(ZtoYupMatrix);
-linalg::vec<float, 3> DefaultScale(1.0f);
-
 inline linalg::mat<float, 4, 4> ConvertZtoYUp(linalg::mat<float, 4, 4> inMatrix) {
-    return linalg::mul(linalg::mul(ZtoYupMatrix, inMatrix), ZtoYUpInv);
+    linalg::mat<float, 4, 4> ZtoYupMatrix(
+        linalg::vec<float, 4>(0, 0, 1, 0),
+        linalg::vec<float, 4>(1, 0, 0, 0),
+        linalg::vec<float, 4>(0, 1, 0, 0),
+        linalg::vec<float, 4>(0, 0, 0, 1)
+    );
+    return linalg::mul(linalg::mul(ZtoYupMatrix, inMatrix), linalg::inverse(ZtoYupMatrix));
 }
 

@@ -27,6 +27,12 @@ namespace MocapDriver {
         /// </summary>
         /// <returns>OpenVR device index</returns>
         virtual vr::TrackedDeviceIndex_t GetDeviceIndex() = 0;
+
+        /// <summary>
+        /// Returns the segment of a mocap source this tracker represents
+        /// </summary>
+        /// <returns>Mocap segment index</returns>
+        virtual int GetSegmentIndex() = 0;
         
         /// <summary>
         /// Returns which type of device this device is
@@ -45,6 +51,12 @@ namespace MocapDriver {
         /// </summary>
         /// <returns>The type of device</returns>
         virtual void SetMotionSource(IMocapStreamSource* motionSource) = 0;
+
+        /// <summary>
+       /// Sets the segment of a mocap source this tracker represents
+       /// </summary>
+        virtual void SetSegmentIndex(int segmentIndex) = 0;
+
         
         /// <summary>
         /// Makes a default device pose 

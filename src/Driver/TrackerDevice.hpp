@@ -16,17 +16,14 @@
 namespace MocapDriver {
     class TrackerDevice : public IVRDevice {
         public:
-
             TrackerDevice(std::string serial, std::string role);
             ~TrackerDevice() = default;
 
             // Inherited via IVRDevice
             virtual std::string GetSerial() override;
             virtual void Update() override;
-            //virtual void UpdatePos(double a, double b, double c, double time, double smoothing);
-            //virtual void UpdateRot(double qw, double qx, double qy, double qz, double time, double smoothing);
-            virtual void save_current_pose(double a, double b, double c, double qw, double qx, double qy, double qz, double time);
-            virtual int get_next_pose(double req_time, double pred[]);
+            //virtual void save_current_pose(double a, double b, double c, double qw, double qx, double qy, double qz, double time);
+            //virtual int get_next_pose(double req_time, double pred[]);
             virtual vr::TrackedDeviceIndex_t GetDeviceIndex() override;
             virtual DeviceType GetDeviceType() override;
             virtual void Log(std::string message);
@@ -37,13 +34,17 @@ namespace MocapDriver {
             virtual void DebugRequest(const char* pchRequest, char* pchResponseBuffer, uint32_t unResponseBufferSize) override;
             virtual vr::DriverPose_t GetPose() override;
             virtual void reinit(int msaved, double mtime, double msmooth, UniverseOrigin origin = {});
+            
+            // Inherited via IVRDevice mocap additions
+            // TODO: Put in seperate interface?
             virtual void SetMotionSource(IMocapStreamSource* motionSource);
+            virtual void SetSegmentIndex(int segmentIndex) override;
+            virtual int GetSegmentIndex() override;
             virtual IMocapStreamSource* GetMotionSource();
     private:
         vr::TrackedDeviceIndex_t device_index_ = vr::k_unTrackedDeviceIndexInvalid;
         std::string serial_;
         std::string role_;
-        IMocapStreamSource* motionSource_;
         bool isSetup;
 
         std::chrono::milliseconds _pose_timestamp;
@@ -64,6 +65,8 @@ namespace MocapDriver {
         double max_time = 1;
         double smoothing = 0;
 
+        IMocapStreamSource* motionSource_;
+        int segmentIndex_;
         double translation_origin[3] = {};
         vr::HmdQuaternion_t rotation_origin;
     };
