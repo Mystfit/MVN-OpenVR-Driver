@@ -41,7 +41,7 @@ public:
 		float velocity[3];
 		float acceleration[3];
 	};
-	Kinematics GetSegmentData(Segment segmentId) const;
+	Kinematics GetSegmentData(MVNSegment segmentId) const;
 	
 protected:
 	virtual void deserializeData (Streamer &inputStreamer) override;

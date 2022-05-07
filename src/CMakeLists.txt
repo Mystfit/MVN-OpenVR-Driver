@@ -24,6 +24,9 @@ add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/Driver)
 # MVN Animate suit source
 add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/MocapSources/MVNAnimate)
 
+# Perception Neuron suit source
+add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/MocapSources/PerceptionNeuron)
+
 # Set all sources
 target_sources(${DRIVER_TARGET} PRIVATE ${DRIVER_SOURCES} ${COMMON_SOURCES})
 

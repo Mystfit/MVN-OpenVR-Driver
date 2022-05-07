@@ -11,6 +11,9 @@
 #include <math.h>
 #include <linalg.h>
 
+#include <MVNStreamSource.h>
+#include <NeuronStreamSource.h>
+
 #define _USE_MATH_DEFINES
 #include <math.h>
 #undef _USE_MATH_DEFINES
@@ -31,10 +34,23 @@ vr::EVRInitError VRDriver::Init(vr::IVRDriverContext* pDriverContext)
 
     // Create MVN stream source explicly
     // TODO: Load from config
-    std::unique_ptr<MVNStreamSource> mvnStreamSrc = std::make_unique<MVNStreamSource>();
-    mvnStreamSrc->init(this);
-    mvnStreamSrc->PopulateTrackers();
-    streamSources_.push_back(std::move(mvnStreamSrc));
+    std::unique_ptr<IMocapStreamSource> suitSource = nullptr;
+
+    Log("!!!!!!!!!!!!!!!");
+    auto suitType = GetSettingsString("ActiveStream");
+    if (suitType == NEURON_STREAM) {
+        Log("Loading Axis Neuron stream");
+        suitSource = std::make_unique<NeuronStreamSource>();
+    }
+    else if (suitType == MVN_STREAM) {
+        Log("Loading MVN stream");
+        suitSource = std::make_unique<MVNStreamSource>();
+    }
+
+    suitSource->Init(this);
+    suitSource->Connect();
+    suitSource->PopulateTrackers();
+    streamSources_.push_back(std::move(suitSource));
   
 	return vr::VRInitError_None;
 }
@@ -191,6 +207,23 @@ SettingsValue VRDriver::GetSettingsValue(std::string key)
     err = vr::EVRSettingsError::VRSettingsError_None;
 
     return SettingsValue();
+}
+
+std::string MocapDriver::VRDriver::GetSettingsString(std::string key)
+{
+    vr::EVRSettingsError err = vr::EVRSettingsError::VRSettingsError_None;
+    std::string str_value;
+    str_value.reserve(1024);
+    char* buf = (char*)malloc(sizeof(char) * 1024);
+    vr::VRSettings()->GetString(settings_key_.c_str(), key.c_str(), buf, 1024, &err);
+    str_value = std::string(buf);
+    free(buf);
+    if (err == vr::EVRSettingsError::VRSettingsError_None) {
+        return str_value;
+    }
+
+    err = vr::EVRSettingsError::VRSettingsError_None;
+    return "";
 }
 
 void VRDriver::Log(std::string message)

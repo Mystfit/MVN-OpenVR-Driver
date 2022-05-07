@@ -12,8 +12,6 @@
 #include "TrackingReferenceDevice.hpp"
 #include "ControllerDevice.hpp"
 
-#include <MVNStreamSource.h>
-
 namespace MocapDriver {
     class VRDriver : public IVRDriver {
     public:
@@ -25,6 +23,8 @@ namespace MocapDriver {
         virtual std::shared_ptr<IVRDevice> CreateTrackerDevice(std::string serial, std::string role, IMocapStreamSource* motionSource, int segmentIndex) override;
         virtual bool AddDevice(std::shared_ptr<IVRDevice> device) override;
         virtual SettingsValue GetSettingsValue(std::string key) override;
+        virtual std::string GetSettingsString(std::string key);
+
         virtual void Log(std::string message) override;
         virtual UniverseOrigin GetUniverseOrigin() override;
 

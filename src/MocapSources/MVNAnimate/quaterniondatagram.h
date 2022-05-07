@@ -41,7 +41,7 @@ public:
 		float position[3];		// position relative to global origin
 		float orientation[4];	// orientation (quaternion) relative to global space
 	};
-	Kinematics GetSegmentData(Segment segmentIdx) const;
+	Kinematics GetSegmentData(MVNSegment segmentIdx) const;
 
 protected:
 	virtual void deserializeData(Streamer &inputStreamer) override;

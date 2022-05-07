@@ -3,7 +3,7 @@
 #include <unordered_map>
 #include <string>
 
-enum Segment {
+enum class MVNSegment {
 	Pelvis = 0,
 	L5= 1,
 	L3 = 2,
@@ -33,32 +33,32 @@ enum Segment {
 	//Prop4 = 27
 };
 
-const std::unordered_map<Segment, std::string> SegmentName = {
-	{Pelvis, "Pelvis"},
-	{L5, "L5"},
-	{L3, "L3"},
-	{T12, "T12"},
-	{T8, "T8"},
-	{Neck, "Neck"},
-	{Head, "Head"},
-	{RightShoulder, "RightShoulder"},
-	{RightUpperArm, "RightUpperArm"},
-	{RightForearm, "RightForearm"},
-	{RightHand, "RightHand"},
-	{LeftShoulder, "LeftShoulder"},
-	{LeftUpperArm, "LeftUpperArm"},
-	{LeftForearm, "LeftForearm"},
-	{LeftHand, "LeftHand"},
-	{RightUpperLeg, "RightUpperLeg"},
-	{RightLowerLeg, "RightLowerLeg"},
-	{RightFoot, "RightFoot"},
-	{RightToe, "RightToe"},
-	{LeftUpperLeg, "LeftUpperLeg"},
-	{LeftLowerLeg, "LeftLowerLeg"},
-	{LeftFoot, "LeftFoot"},
-	{LeftToe, "LeftToe"}
-	//{Prop1, "Prop1"},
-	//{Prop2, "Prop2"},
-	//{Prop3, "Prop3"},
-	//{Prop4, "Prop4"}
+const std::unordered_map<MVNSegment, std::string> MVNSegmentName = {
+	{MVNSegment::Pelvis, "Pelvis"},
+	{MVNSegment::L5, "L5"},
+	{MVNSegment::L3, "L3"},
+	{MVNSegment::T12, "T12"},
+	{MVNSegment::T8, "T8"},
+	{MVNSegment::Neck, "Neck"},
+	{MVNSegment::Head, "Head"},
+	{MVNSegment::RightShoulder, "RightShoulder"},
+	{MVNSegment::RightUpperArm, "RightUpperArm"},
+	{MVNSegment::RightForearm, "RightForearm"},
+	{MVNSegment::RightHand, "RightHand"},
+	{MVNSegment::LeftShoulder, "LeftShoulder"},
+	{MVNSegment::LeftUpperArm, "LeftUpperArm"},
+	{MVNSegment::LeftForearm, "LeftForearm"},
+	{MVNSegment::LeftHand, "LeftHand"},
+	{MVNSegment::RightUpperLeg, "RightUpperLeg"},
+	{MVNSegment::RightLowerLeg, "RightLowerLeg"},
+	{MVNSegment::RightFoot, "RightFoot"},
+	{MVNSegment::RightToe, "RightToe"},
+	{MVNSegment::LeftUpperLeg, "LeftUpperLeg"},
+	{MVNSegment::LeftLowerLeg, "LeftLowerLeg"},
+	{MVNSegment::LeftFoot, "LeftFoot"},
+	{MVNSegment::LeftToe, "LeftToe"}
+	//{MVNSegment::Prop1, "Prop1"},
+	//{MVNSegment::Prop2, "Prop2"},
+	//{MVNSegment::Prop3, "Prop3"},
+	//{MVNSegment::Prop4, "Prop4"}
 };

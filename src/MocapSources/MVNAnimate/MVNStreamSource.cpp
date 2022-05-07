@@ -5,10 +5,13 @@
 #include <PoseMath.hpp>
 #include <linearsegmentkinematicsdatagram.h>
 
-void MVNStreamSource::init(MocapDriver::IVRDriver* owning_driver)
+void MVNStreamSource::Init(MocapDriver::IVRDriver* owning_driver)
 {
 	driver_ = owning_driver;
+}
 
+bool MVNStreamSource::Connect()
+{
     int port = 9763;
     std::string hostDestinationAddress = "localhost";
     mvn_udp_server_ = std::make_unique<UdpServer>(
@@ -18,17 +21,19 @@ void MVNStreamSource::init(MocapDriver::IVRDriver* owning_driver)
             this->ReceiveMVNData(protocol, message);
         });
     GetDriver()->Log("Created MVN listen server");
+
+    return true;
 }
 
 void MVNStreamSource::PopulateTrackers()
 {
-    for (auto segment : SegmentName) {
-        std::string segment_hint = GetSettingsSegmentTarget(segment.first);
+    for (auto segment : MVNSegmentName) {
+        std::string segment_hint = GetSegmentRole(segment.first);
         if (segment_hint.compare("disabled")) {
-            std::string name = SegmentName.at(segment.first);
+            std::string name = MVNSegmentName.at(segment.first);
             std::string role = segment.second;
 
-            auto tracker = GetDriver()->CreateTrackerDevice(name, role, this, segment.first);
+            auto tracker = GetDriver()->CreateTrackerDevice(name, role, this, (int)segment.first);
 
             std::string rendermodel = std::string("{Mocap}/rendermodels/XSens/") + tracker->GetSerial();
             GetDriver()->Log("Tracker rendermodel path: " + rendermodel);
@@ -58,13 +63,13 @@ void MVNStreamSource::QueuePose(const PoseSample& pose)
 std::string MVNStreamSource::GetRenderModelPath(int segmentIndex)
 {
     // Relative to "{Mocap}/rendermodels"
-    return std::string("XSens/") + SegmentName.at((Segment)segmentIndex); //"{htc}/rendermodels/vr_tracker_vive_1_0"; 
+    return std::string("XSens/") + MVNSegmentName.at((MVNSegment)segmentIndex); //"{htc}/rendermodels/vr_tracker_vive_1_0"; 
 }
 
-std::string MVNStreamSource::GetSettingsSegmentTarget(Segment segment)
+std::string MVNStreamSource::GetSegmentRole(MVNSegment segment)
 {
     std::string prefix = "Role_";
-    std::string key = prefix + SegmentName.at(segment);
+    std::string key = prefix + MVNSegmentName.at(segment);
 
     vr::EVRSettingsError err = vr::EVRSettingsError::VRSettingsError_None;
     char* buf = (char*)malloc(sizeof(char) * 1024);
@@ -86,7 +91,7 @@ void MVNStreamSource::ReceiveMVNData(StreamingProtocol protocol, const Datagram*
 
     // Create a new pose if it isn't already being filled
     if (incomplete_poses_.find(msg_id) == incomplete_poses_.end()) {
-        incomplete_poses_.emplace(msg_id, PoseSample{ msg_id, std::vector<SegmentSample>(SegmentName.size()) });
+        incomplete_poses_.emplace(msg_id, PoseSample{ msg_id, std::vector<SegmentSample>(MVNSegmentName.size()) });
         
 #ifdef MVN_SUPPORTS_LINEAR_KINEMATICS 
         pose_is_complete = false;
@@ -97,7 +102,7 @@ void MVNStreamSource::ReceiveMVNData(StreamingProtocol protocol, const Datagram*
         auto segment = tracker_pair.first;
 
         // Find incomplete pose segment for us to fill
-        auto segment_it = incomplete_poses_[msg_id].segments.begin() + segment;
+        auto segment_it = incomplete_poses_[msg_id].segments.begin() + (int)segment;
     
         if (protocol == StreamingProtocol::SPPoseQuaternion) {
             const QuaternionDatagram* quat_msg = static_cast<const QuaternionDatagram*>(message);

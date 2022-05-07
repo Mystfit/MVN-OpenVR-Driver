@@ -11,9 +11,12 @@
 
 #include "segments.h"
 
+#define MVN_STREAM "MVN"
+
 class MVNStreamSource : public IMocapStreamSource {
 public:
-	virtual void init(MocapDriver::IVRDriver* owning_driver) override;
+	virtual void Init(MocapDriver::IVRDriver* owning_driver) override;
+	virtual bool Connect() override;
 	virtual void PopulateTrackers() override;
 	virtual MocapDriver::IVRDriver* GetDriver() override;
 	virtual PoseSample GetNextPose() override;
@@ -23,9 +26,9 @@ public:
 private:
 	void ReceiveMVNData(StreamingProtocol, const Datagram*);
 
-	std::string GetSettingsSegmentTarget(Segment segment);
+	std::string GetSegmentRole(MVNSegment segment);
 	MocapDriver::IVRDriver* driver_;
-	std::unordered_map<Segment, std::shared_ptr<MocapDriver::IVRDevice>> trackers_;
+	std::unordered_map<MVNSegment, std::shared_ptr<MocapDriver::IVRDevice>> trackers_;
 	std::unique_ptr<UdpServer> mvn_udp_server_;
 
 	std::mutex pose_update_mtx;
