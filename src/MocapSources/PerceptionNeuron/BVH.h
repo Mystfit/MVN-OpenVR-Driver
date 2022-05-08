@@ -3,6 +3,7 @@
 #pragma once
 
 #include <vector>
+#include <list>
 #include <stack>
 #include <string.h>
 #include <fstream>
@@ -22,6 +23,7 @@ enum Channels
 struct Joint 
 {
 	std::string name;
+	int index;
 	Joint *parent;
 	Offset offset;
 	bool end;
@@ -29,7 +31,6 @@ struct Joint
 	unsigned int offsetChannel;
 	std::vector<Channels> channelEnums;
 	std::vector<Joint*> children;
-
 };
 
 struct Motion
@@ -50,6 +51,8 @@ public:
 	bool load_stream(std::stringstream& stream);
 	bool load_file(const std::filesystem::path& path);
 
+	std::list<Joint*> GetBoneChainToTarget(int jointIndex);
+
 	std::vector<std::string> splitString(std::string &str, char delimiter);
 	bool loadHierarchy(std::stringstream *stream, Joint *parent, Joint *out);
 	bool loadMotion(std::stringstream*stream, Motion *out);
@@ -62,6 +65,7 @@ private:
 	std::vector<std::string> vec;
 
 	Joint* root;
+	std::vector<Joint*> flat_joints;
 	Motion* motion;
 
 	bool loaded;

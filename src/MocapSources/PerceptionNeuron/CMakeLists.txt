@@ -3,7 +3,6 @@ set(NEURON_HEADERS
     "${CMAKE_CURRENT_LIST_DIR}/NeuronStreamSource.h"
 	"${CMAKE_CURRENT_LIST_DIR}/NeuronSegments.h"
 	"${CMAKE_CURRENT_LIST_DIR}/BVH.h"
-	"${CMAKE_CURRENT_LIST_DIR}/bvh_header_template.h"
 )
 set(NEURON_SOURCES
     "${CMAKE_CURRENT_LIST_DIR}/NeuronStreamSource.cpp"

@@ -2,6 +2,7 @@
 #include <iostream>
 #include <sstream>
 #include <filesystem>
+#include <PoseMath.hpp>
 
 static unsigned int channelOffsetNum = 0;
  
@@ -84,8 +85,39 @@ bool BVH::load_file(const std::filesystem::path& path)
 	load_stream(stream);
 }
 
+std::list<Joint*> BVH::GetBoneChainToTarget(int jointIndex)
+{
+	std::list<Joint*> jointChain;
+
+	if (jointIndex >= flat_joints.size()) {
+		return jointChain;
+	}
+
+	auto startJoint = flat_joints[jointIndex];
+	Joint* currentJoint = startJoint;
+	
+	// Starting joint ends up at the end
+	jointChain.push_back(currentJoint);
+
+	while (currentJoint) {
+		if (currentJoint->parent) {
+			jointChain.push_back(currentJoint->parent);
+			currentJoint = currentJoint->parent;
+		}
+		else {
+			break;
+		}
+	}
+
+	return jointChain;
+}
+
 bool BVH::loadHierarchy(std::stringstream*stream, Joint *parent, Joint *out)
 {
+	// Remember the current index for this joint so we can rebuild bone chains
+	out->index = flat_joints.size();
+	flat_joints.push_back(out);
+
 	bool isEnd = false;
 	
 	std::string line;
@@ -150,8 +182,7 @@ bool BVH::loadHierarchy(std::stringstream*stream, Joint *parent, Joint *out)
 
 	while (vec[0] == "JOINT" || vec[0] == "End")
 	{
-		Joint *   newJoint = new Joint();
-	
+		Joint *   newJoint = new Joint();	
 		out->children.push_back(newJoint);
 
 		bool res = loadHierarchy(stream, out, newJoint);

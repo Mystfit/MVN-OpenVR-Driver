@@ -22,7 +22,15 @@
 void NeuronStreamSource::Init(MocapDriver::IVRDriver* owning_driver)
 {
 	owning_driver_ = owning_driver;
-	bvhLoader.load_file("F:/Code/MVN-OpenVR-Driver/src/MocapSources/PerceptionNeuron/bvh_header_template2.bvh");
+
+	vr::ETrackedPropertyError tpeError;
+	std::filesystem::path installDir = vr::VRProperties()->GetStringProperty(vr::VRDriverContext()->GetDriverHandle(), vr::Prop_InstallPath_String, &tpeError);
+
+	//(installDir / std::filesystem::path("resources/skeletons/axisneuron_hierarchy.bvh")).string()
+
+	//char hierarchy_path[vr::k_unMaxPropertyStringSize];
+	//vr::VRSettings()->GetResourceFullPath("axisneuron_hierarchy.bvh", "{Mocap}/skeletons", hierarchy_path, vr::k_unMaxPropertyStringSize);
+	bvhLoader.load_file((installDir / "resources" / "skeletons" / "axisneuron_hierarchy.bvh"));
 }
 
 bool NeuronStreamSource::Connect()
@@ -95,6 +103,7 @@ std::string NeuronStreamSource::GetRenderModelPath(int segmentIndex)
 	// Relative to "{Mocap}/rendermodels"
 // 
 	//return std::string("Neuron/") + SegmentName.at((MVNSegment)segmentIndex); //"{htc}/rendermodels/vr_tracker_vive_1_0"; 
+	//return std::string("PerceptionNeuron/locator");
 	return std::string("PerceptionNeuron/generic_tracker");
 }
 
@@ -141,6 +150,8 @@ void NeuronStreamSource::BvhExport(BvhDataHeader* header, float* data) {
 	m_currentFrame = header->FrameIndex;
 
 	PoseSample pose = PoseSample{ 0, std::vector<SegmentSample>(NeuronSegmentName.size()) };
+	std::vector<linalg::vec<float, 3>> relativeLocations(NeuronSegmentName.size());
+	std::vector<linalg::vec<float, 4>> relativeRotations(NeuronSegmentName.size());
 
 	for (unsigned int i = 0; i < NeuronSegmentName.size(); i++) {
 		// Get locations and convert to meters
@@ -149,41 +160,68 @@ void NeuronStreamSource::BvhExport(BvhDataHeader* header, float* data) {
 		float zloc = data[(i * 6) + 2] / 100.0;
 
 		// Get rotations and convert to radians
-		float yrot = data[(i * 6) + 3] * M_PI / 180;
-		float xrot = data[(i * 6) + 4] * M_PI / 180;
-		float zrot = data[(i * 6) + 5] * M_PI / 180;
+		float yrot = data[(i * 6) + 3] * M_PI / 180; //yaw
+		float xrot = data[(i * 6) + 4] * M_PI / 180; //pitch
+		float zrot = data[(i * 6) + 5] * M_PI / 180; //roll
+
+		//// Min euler
+		//yrot = (yrot < 0) ? yrot + 360.0 : yrot;
+		//xrot = (xrot < 0) ? xrot + 360.0 : xrot;
+		//zrot = (zrot < 0) ? zrot + 360.0 : zrot;
+
+		//// Max euler
+		//yrot = (yrot >= 360.0) ? yrot - 360.0 : yrot;
+		//xrot = (xrot >= 360.0) ? xrot - 360.0 : xrot;
+		//zrot = (zrot >= 360.0) ? zrot - 360.0 : zrot;
+
+		// Store relative locations for conversion to absolute locations
+
 
 		// Convert rotations to quaternions
-		double euler[3] = { xrot, yrot, zrot };
-		double quat[4];
-		eulerToQuaternion(euler, quat);
+		linalg::vec<float, 3> pos = {xloc, yloc, zloc};
+		linalg::vec<float, 3> euler = { yrot, xrot, zrot };
+		linalg::vec<float, 4> quat = eulerToQuaternion(euler);
+		quat = linalg::normalize(quat);
+
+		//linalg::mat<float, 4, 4> trans_mat = linalg::pose_matrix<float>(quat, pos);
+		//trans_mat = ConvertLeftToRightHanded(trans_mat);
+		//linalg::vec<float, 4> rotQuat = linalg::rotation_quat(GetRotationMatrixFromTransform(trans_mat));
 
 		// Create pose
-		pose.segments[i].translation[0] = xloc;
-		pose.segments[i].translation[1] = yloc;
-		pose.segments[i].translation[2] = zloc;
-		pose.segments[i].rotation_quat[0] = quat[0];
-		pose.segments[i].rotation_quat[1] = quat[1];
-		pose.segments[i].rotation_quat[2] = quat[2];
-		pose.segments[i].rotation_quat[3] = quat[3];
+		relativeLocations[i][0] = pos.x;
+		relativeLocations[i][1] = pos.y;
+		relativeLocations[i][2] = pos.z;
+		relativeRotations[i][0] = quat.w;
+		relativeRotations[i][1] = quat.x;
+		relativeRotations[i][2] = quat.y;
+		relativeRotations[i][3] = quat.z;
+	}
 
-		try {
-			/*if ((NeuronSegment)i == NeuronSegment::Hips) {
-				GetDriver()->Log(
-					"Neuron segment: " + NeuronSegmentName.at((NeuronSegment)i) +
-					" Xpos: " + std::to_string(xloc) +
-					" Ypos: " + std::to_string(yloc) +
-					" Zpos: " + std::to_string(zloc) +
-					" Yrot: " + std::to_string(yrot) +
-					" Xrot: " + std::to_string(xrot) +
-					" Zrot: " + std::to_string(zrot)
-				);
-			}*/
+	// We need to convert relative joint positions to absolute so use the cached BVH hierarchy
+	for (unsigned int joint_idx = 0; joint_idx < NeuronSegmentName.size(); joint_idx++) {
+		auto jointChain = bvhLoader.GetBoneChainToTarget(joint_idx);
+		
+		// Sum relative joint locations to get the absolute translation
+		auto start_joint = *jointChain.begin();
+		linalg::mat<float, 4, 4> abs_joint_pose = linalg::pose_matrix<float>(relativeRotations[start_joint->index], relativeLocations[start_joint->index]);
+		for(auto joint : jointChain){
+			if (joint != *jointChain.begin()) {
+				// Multiply child against each parent joint to build absolute position
+				linalg::vec<float, 3> offset_pos = relativeLocations[joint->index];//{ joint->offset.x / 100.0f, joint->offset.y / 100.0f, joint->offset.z / 100.0f };
+				abs_joint_pose = linalg::mul(abs_joint_pose, linalg::pose_matrix<float>(relativeRotations[joint->index], offset_pos));
+			}
 		}
-		catch (std::out_of_range e) {
-			std::string segmentIdx = std::to_string(i);
-			GetDriver()->Log("Neuron segment index out of range" + segmentIdx);
-		}
+
+		// Pull quaternion out of segment transformation matrix
+		linalg::vec<float, 4> rotQuat = linalg::rotation_quat(GetRotationMatrixFromTransform(abs_joint_pose));
+
+		pose.segments[joint_idx].translation[0] = abs_joint_pose.w.x;
+		pose.segments[joint_idx].translation[1] = abs_joint_pose.w.y;
+		pose.segments[joint_idx].translation[2] = abs_joint_pose.w.z;
+		pose.segments[joint_idx].rotation_quat[0] = rotQuat.w;
+		pose.segments[joint_idx].rotation_quat[1] = rotQuat.x;
+		pose.segments[joint_idx].rotation_quat[2] = rotQuat.y;
+		pose.segments[joint_idx].rotation_quat[3] = rotQuat.z;
 	}
 
 	QueuePose(pose);

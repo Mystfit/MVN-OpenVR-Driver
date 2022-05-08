@@ -36,7 +36,6 @@ vr::EVRInitError VRDriver::Init(vr::IVRDriverContext* pDriverContext)
     // TODO: Load from config
     std::unique_ptr<IMocapStreamSource> suitSource = nullptr;
 
-    Log("!!!!!!!!!!!!!!!");
     auto suitType = GetSettingsString("ActiveStream");
     if (suitType == NEURON_STREAM) {
         Log("Loading Axis Neuron stream");

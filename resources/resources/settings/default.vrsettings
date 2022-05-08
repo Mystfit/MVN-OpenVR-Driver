@@ -35,10 +35,10 @@
   "AxisNeuron": {
     "Role_Hips": "vive_tracker_waist",
     "Role_RightUpLeg": "disabled",
-    "Role_RightLeg": "vive_tracker",
+    "Role_RightLeg": "disabled",
     "Role_RightFoot": "vive_tracker_right_foot",
     "Role_LeftUpLeg": "disabled",
-    "Role_LeftLeg": "vive_tracker",
+    "Role_LeftLeg": "disabled",
     "Role_LeftFoot": "vive_tracker_left_foot",
     "Role_Spine": "disabled",
     "Role_Spine1": "disabled",
@@ -48,11 +48,11 @@
     "Role_Head": "disabled",
     "Role_RightShoulder": "disabled",
     "Role_RightArm": "disabled",
-    "Role_RightForeArm": "vive_tracker",
+    "Role_RightForeArm": "disabled",
     "Role_RightHand": "disabled",
     "Role_LeftShoulder": "disabled",
     "Role_LeftArm": "disabled",
     "Role_LeftForeArm": "vive_tracker",
-    "Role_LeftHand": "disabled"
+    "Role_LeftHand": "vive_tracker"
   }
 }
