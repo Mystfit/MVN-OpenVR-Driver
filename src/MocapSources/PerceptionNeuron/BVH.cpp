@@ -93,15 +93,15 @@ std::list<Joint*> BVH::GetBoneChainToTarget(int jointIndex)
 		return jointChain;
 	}
 
-	auto startJoint = flat_joints[jointIndex];
-	Joint* currentJoint = startJoint;
+	auto endJoint = flat_joints[jointIndex];
+	Joint* currentJoint = endJoint;
 	
-	// Starting joint ends up at the end
-	jointChain.push_back(currentJoint);
+	// Last joint ends up at the end of the chain
+	jointChain.push_front(currentJoint);
 
 	while (currentJoint) {
 		if (currentJoint->parent) {
-			jointChain.push_back(currentJoint->parent);
+			jointChain.push_front(currentJoint->parent);
 			currentJoint = currentJoint->parent;
 		}
 		else {
@@ -110,6 +110,11 @@ std::list<Joint*> BVH::GetBoneChainToTarget(int jointIndex)
 	}
 
 	return jointChain;
+}
+
+Joint* BVH::GetBone(int boneIndex)
+{
+	return flat_joints[boneIndex];
 }
 
 bool BVH::loadHierarchy(std::stringstream*stream, Joint *parent, Joint *out)

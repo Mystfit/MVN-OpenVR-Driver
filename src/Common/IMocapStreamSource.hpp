@@ -22,6 +22,7 @@ class IMocapStreamSource {
 public:
 	virtual void Init(MocapDriver::IVRDriver* owning_driver) = 0;
 	virtual bool Connect() = 0;
+	virtual void Update() = 0;
 	virtual std::string GetRenderModelPath(int segmentIndex) = 0;
 	virtual void PopulateTrackers() = 0;
 	virtual MocapDriver::IVRDriver* GetDriver() = 0;

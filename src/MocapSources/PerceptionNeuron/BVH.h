@@ -7,6 +7,7 @@
 #include <stack>
 #include <string.h>
 #include <fstream>
+#include <linalg.h>
 
 
 struct Offset 
@@ -52,6 +53,8 @@ public:
 	bool load_file(const std::filesystem::path& path);
 
 	std::list<Joint*> GetBoneChainToTarget(int jointIndex);
+	Joint* GetBone(int boneIndex);
+	//linalg::vec<float, 4> GetBoneWorldRotation(Joint* bone, linalg::vec<float, 4>& localQuat);
 
 	std::vector<std::string> splitString(std::string &str, char delimiter);
 	bool loadHierarchy(std::stringstream *stream, Joint *parent, Joint *out);

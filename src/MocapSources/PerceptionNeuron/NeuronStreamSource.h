@@ -1,16 +1,13 @@
 #pragma once
 
-#include <DataType.h>
 #include <IMocapStreamSource.hpp>
-#include <NeuronDataReader.h>
+#include <MocapApi.h>
 #include <iostream>
 #include <iomanip>
 #include <fstream>
 #include <map>
 #include <string>
 #include <mutex>
-
-#pragma comment(lib, "NeuronDataReader.lib")
 
 #include "BVH.h"
 #include "NeuronSegments.h"
@@ -28,6 +25,7 @@ public:
 	// Implementing IMocapStreamSource
 	virtual void Init(MocapDriver::IVRDriver* owning_driver) override;
 	virtual bool Connect() override;
+	virtual void Update() override;
 	virtual void PopulateTrackers() override;
 	virtual MocapDriver::IVRDriver* GetDriver() override;
 	virtual PoseSample GetNextPose() override;
@@ -36,26 +34,12 @@ public:
 	
 
 private:
-	// Kill the connection
-	void KillConnection();
-
-	// Callback functions to receive the BVH data
-	static void __stdcall BvhFrameDataReceived(void*, SOCKET_REF, BvhDataHeader*, float*);
-	// Callback functions to receive the Calculation data
-	static void __stdcall CalcFrameDataReceive(void*, SOCKET_REF, CalcDataHeader*, float*);
-
-	// Display information about the received BVH data
-	void ShowBvhBoneInfo(SOCKET_REF, BvhDataHeader*, float*);
-
-	// Display information about the received Calc data
-	void ShowBvhCalcInfo(SOCKET_REF, CalcDataHeader*, float*);
-
-	void BvhExport(BvhDataHeader*, float*);
+	MocapApi::MCPApplicationHandle_t _application;
+	void UpdateAvatarTransform(MocapApi::MCPAvatarHandle_t avatar);
+	void UpdateJointsTransform(MocapApi::MCPJointHandle_t joint, PoseSample& outPose);
 
 	std::string GetSegmentRole(NeuronSegment segment);
 
-	// Socket used to connect to the Neuron
-	SOCKET_REF sockUDPRef;
 
 	// See below for more information
 	enum {

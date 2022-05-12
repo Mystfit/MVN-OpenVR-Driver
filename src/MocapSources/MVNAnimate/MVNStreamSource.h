@@ -17,6 +17,7 @@ class MVNStreamSource : public IMocapStreamSource {
 public:
 	virtual void Init(MocapDriver::IVRDriver* owning_driver) override;
 	virtual bool Connect() override;
+	virtual void Update() override {};
 	virtual void PopulateTrackers() override;
 	virtual MocapDriver::IVRDriver* GetDriver() override;
 	virtual PoseSample GetNextPose() override;

@@ -30,8 +30,8 @@ target_include_directories(${NEURONANIMATE_TARGET} PUBLIC
 )
 
 # Find the NeuronDataReader lib from the Neuron SDK at https://neuronmocap.com/system/files/software/NeuronDataReaderSDK%20b18_0.zip
-find_package(NeuronDataReader)
-target_link_libraries(${NEURONANIMATE_TARGET} PUBLIC NeuronDataReader)
+find_package(NeuronMocapAPI)
+target_link_libraries(${NEURONANIMATE_TARGET} PUBLIC NeuronMocapAPI)
 set(MOCAP_PRIVATE_LIBS 
 	${MOCAP_PRIVATE_LIBS}
 	${NEURONANIMATE_TARGET}
@@ -40,10 +40,10 @@ set(MOCAP_PRIVATE_LIBS
 
 # Copy NeuronDataReader DLL dependencies to driver
 set(DRIVER_DLL_DEST ${DRIVER_RESOURCE_DEST}/bin/${PLATFORM_NAME}${PROCESSOR_ARCH})
-set(NEURONREADER_DLL_DEST ${DRIVER_DLL_DEST}/NeuronDataReader.dll)
+set(NEURONMOCAPAPI_DLL_DEST ${DRIVER_DLL_DEST}/MocapApi.dll)
 add_custom_command(
 	POST_BUILD
 	TARGET ${NEURONANIMATE_TARGET}
-    COMMAND ${CMAKE_COMMAND} -E copy "$<TARGET_FILE:NeuronDataReader>" "${NEURONREADER_DLL_DEST}"
+    COMMAND ${CMAKE_COMMAND} -E copy "$<TARGET_FILE:NeuronMocapAPI>" "${NEURONMOCAPAPI_DLL_DEST}"
     DEPENDS ${MVNAnimateStream} 
 )

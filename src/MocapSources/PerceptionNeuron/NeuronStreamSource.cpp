@@ -6,6 +6,7 @@
 
 #define _USE_MATH_DEFINES
 #include <math.h>
+#include <cassert>
 #undef _USE_MATH_DEFINES
 
 //NeuronStreamSource::NeuronStreamSource() {
@@ -35,35 +36,110 @@ void NeuronStreamSource::Init(MocapDriver::IVRDriver* owning_driver)
 
 bool NeuronStreamSource::Connect()
 {
-	// If a connection has already been established
-	if (sockUDPRef) {
-		// close socket
-		BRCloseSocket(sockUDPRef);
-		sockUDPRef = 0;
+	// Query Application Interface [1/8/2021 brian.wang]
+	MocapApi::IMCPApplication* mcpApplication = nullptr;
+	MocapApi::EMCPError mcpError = MocapApi::MCPGetGenericInterface(MocapApi::IMCPApplication_Version,
+		reinterpret_cast<void**>(&mcpApplication));
+	//check(mcpError == MocapApi::Error_None);
+
+	// Create Communication Application With PNS [1/8/2021 brian.wang]
+	mcpError = mcpApplication->CreateApplication(&_application);
+	assert(mcpError == MocapApi::EMCPError::Error_None);
+
+	{
+		// Query Settings Interface [1/8/2021 brian.wang]
+		MocapApi::IMCPSettings* mcpSettings = nullptr;
+		mcpError = MocapApi::MCPGetGenericInterface(MocapApi::IMCPSettings_Version,
+			reinterpret_cast<void**>(&mcpSettings));
+		assert(mcpError == MocapApi::EMCPError::Error_None);
+
+		// Create Settings Object [1/8/2021 brian.wang]
+		MocapApi::MCPSettingsHandle_t mcpSettingsHandle = 0;
+		mcpError = mcpSettings->CreateSettings(&mcpSettingsHandle);
+		assert(mcpError == MocapApi::EMCPError::Error_None);
+
+		// Follow settings value setting is same sa PNS Settings [1/8/2021 brian.wang]
+		{
+			/*
+			* [1/8/2021 brian.wang]
+			*   This settings same as "Bvh Broadcasting"-> "Frame Format" -> "Type", only support MocapApi::BvhDataType_Binary,
+				other MocapApi::BvhDataType_Mask_LegacyHumanHierarchy with MocapApi::BvhDataType_Binary Group same as "Skeleton"->"Perception Neuron/ Perception Neuron Pro" in PNS.
+			*/
+			mcpError = mcpSettings->SetSettingsBvhData(MocapApi::BvhDataType_Binary, mcpSettingsHandle);
+			assert(mcpError == MocapApi::EMCPError::Error_None);
+			// this settings same as "BVH Broadcasting"->"Bvh Format"->Rotation in pns [1/8/2021 brian.wang]
+			mcpError = mcpSettings->SetSettingsBvhRotation(MocapApi::BvhRotation_YXZ, mcpSettingsHandle);
+			assert(mcpError == MocapApi::EMCPError::Error_None);
+			// this settings same as pns [1/8/2021 brian.wang]
+			mcpError = mcpSettings->SetSettingsBvhTransformation(MocapApi::BvhTransformation_Enable, mcpSettingsHandle);
+			assert(mcpError == MocapApi::EMCPError::Error_None);
+#if 1   //  same as "Bvh Broadcasting" -> "Protocol" -> "UDP" -> "Port" in PNS Setting
+			mcpError = mcpSettings->SetSettingsUDP(7004, mcpSettingsHandle);
+#else   //  same as "Bvh Broadcasting" -> "Protocol" -> "TCP" -> "Local IP" -> "IP" and "Port" in PNS Setting
+			mcpError = mcpSettings->SetSettingsTCP("127.0.0.1", 7002, mcpSettingsHandle);
+#endif
+			assert(mcpError == MocapApi::EMCPError::Error_None);
+		}
+
+		// set Settings for Application [1/8/2021 brian.wang]
+		mcpError = mcpApplication->SetApplicationSettings(mcpSettingsHandle, _application);
+		assert(mcpError == MocapApi::EMCPError::Error_None);
+		// Destroy Settings, if not used [1/8/2021 brian.wang]
+		//mcpError = mcpSettings->DestroySettings(mcpSettingsHandle);
+		//assert(mcpError == MocapApi::EMCPError::Error_None);
 	}
 
-	// Try to connect to the Neuron
-	const char* address = "127.0.0.1";
-	//sockTCPRef = BRConnectTo(const_cast<char*>(address), 7003);
-	sockUDPRef = BRStartUDPServiceAt(7004);
+	{
+		// Query RenderSettings Interface [1/8/2021 brian.wang]
+		MocapApi::IMCPRenderSettings* renderSettings = nullptr;
+		mcpError = MocapApi::MCPGetGenericInterface(MocapApi::IMCPRenderSettings_Version,
+			reinterpret_cast<void**>(&renderSettings));
+		assert(mcpError == MocapApi::EMCPError::Error_None);
 
-	// If the connection is ok
-	if (sockUDPRef) {
+		MocapApi::MCPRenderSettingsHandle_t renderSettingsHandle = 0;
 
-		//calback register used to receive data
-		// (we assign BvhFrameDataReceived to the FrameData callback,
-		//  and CalcFrameDataReceive to the CalculationData callback)
-		BRRegisterFrameDataCallback(this, BvhFrameDataReceived);
+		// Get Pre-Defined RenderSetting suport PreDefinedRenderSettings_UnrealEngine, or PreDefinedRenderSettings_Unity3D [1/8/2021 brian.wang]
+		renderSettings->GetPreDefRenderSettings(MocapApi::PreDefinedRenderSettings_Default, &renderSettingsHandle);// MUST NOT Destroy this [1/8/2021 brian.wang]
 
-		// Unused
-		// TODO: check if it works if we delete this
-		BRRegisterCalculationDataCallback(this, CalcFrameDataReceive);
-
-		return true;
+		// Set Render Settings for Application [1/8/2021 brian.wang]
+		mcpError = mcpApplication->SetApplicationRenderSettings(renderSettingsHandle, _application);
+		assert(mcpError == MocapApi::EMCPError::Error_None);
 	}
+
+	mcpError = mcpApplication->OpenApplication(_application);
+	assert(mcpError == MocapApi::EMCPError::Error_None);
 
 	// Failed
-	return false;
+	return true;
+}
+
+void NeuronStreamSource::Update()
+{
+	// Query Application Interface [1/8/2021 brian.wang]
+	MocapApi::IMCPApplication* mcpApplication = nullptr;
+	MocapApi::EMCPError mcpError = MocapApi::MCPGetGenericInterface(MocapApi::IMCPApplication_Version,
+		reinterpret_cast<void**>(&mcpApplication));
+
+	std::vector<MocapApi::MCPEvent_t> events;
+	uint32_t unEvent = 0;
+
+	// poll next event in application event queue [1/8/2021 brian.wang]
+	mcpError = mcpApplication->PollApplicationNextEvent(nullptr, &unEvent, _application);
+	if (unEvent > 0) {
+		events.resize(unEvent);
+		for (auto& e : events) {
+			e.size = sizeof(MocapApi::MCPEvent_t);
+		}
+		mcpError = mcpApplication->PollApplicationNextEvent(events.data(), &unEvent, _application);
+	}
+	if (unEvent > 0) {
+		// update avatar posture [1/8/2021 brian.wang]
+		for (const auto& e : events) {
+			if (e.eventType == MocapApi::MCPEvent_AvatarUpdated) {
+				UpdateAvatarTransform(e.eventData.motionData.avatarHandle);
+			}
+		}
+	}
 }
 
 void NeuronStreamSource::PopulateTrackers()
@@ -107,125 +183,170 @@ std::string NeuronStreamSource::GetRenderModelPath(int segmentIndex)
 	return std::string("PerceptionNeuron/generic_tracker");
 }
 
-void NeuronStreamSource::KillConnection() {
-	BRCloseSocket(sockUDPRef);
-}
 
-void __stdcall NeuronStreamSource::BvhFrameDataReceived(void* customedObj, SOCKET_REF sender, BvhDataHeader* header, float* data) {
-	NeuronStreamSource* pthis = (NeuronStreamSource*)customedObj;
-	pthis->ShowBvhBoneInfo(sender, header, data);
-}
+void NeuronStreamSource::UpdateAvatarTransform(MocapApi::MCPAvatarHandle_t avatar)
+{
+	MocapApi::EMCPError mcpError;
 
-// Called, but unused
-void __stdcall NeuronStreamSource::CalcFrameDataReceive(void* customedObj, SOCKET_REF sender, CalcDataHeader* header, float* data) {
-	NeuronStreamSource* pthis = (NeuronStreamSource*)customedObj;
-	pthis->ShowBvhCalcInfo(sender, header, data);
-}
+	// Query Avatar Interface [1/8/2021 brian.wang]
+	MocapApi::IMCPAvatar* avatarMgr = nullptr;
+	mcpError = MocapApi::MCPGetGenericInterface(MocapApi::IMCPAvatar_Version,
+		reinterpret_cast<void**>(&avatarMgr));
+	assert(mcpError == MocapApi::EMCPError::Error_None);
 
-void NeuronStreamSource::ShowBvhBoneInfo(SOCKET_REF sender, BvhDataHeader* header, float* data) {
-	if (m_initialFrame == -1)
-		m_initialFrame = header->FrameIndex;
-	
-	if(m_dataCount == -1)
-		m_dataCount = header->DataCount;
+	// Get Root Joint at Avatar [1/8/2021 brian.wang]
+	MocapApi::MCPJointHandle_t joint = 0;
+	mcpError = avatarMgr->GetAvatarRootJoint(&joint, avatar);
+	assert(mcpError == MocapApi::EMCPError::Error_None);
 
-	BvhExport(header, data);
-}
+	MocapApi::MCPJointHandle_t joints;
+	uint32_t numJoints = 0;
+	mcpError = avatarMgr->GetAvatarJoints(&joints, &numJoints, avatar);
+	assert(mcpError == MocapApi::EMCPError::Error_None);
 
-void NeuronStreamSource::ShowBvhCalcInfo(SOCKET_REF sender, CalcDataHeader* header, float* data) {
-	// Cool callback bro
-}
+	PoseSample pose = PoseSample{ 0, std::vector<SegmentSample>(MocapApi::EMCPJointTag::JointTag_JointsCount) };
 
-void NeuronStreamSource::BvhExport(BvhDataHeader* header, float* data) {
-
-	// Initial connection :
-	// We get the initial offsets and the hierarchy
-	m_perJoint = 6;
-
-	if (!header->WithDisp) {
-		GetDriver()->Log("Received BVH frame from Axis Studio with no displacement data. Enable displacement in Axis studio BVH broadcast.");
-		return;
-	}
-
-	m_currentFrame = header->FrameIndex;
-
-	PoseSample pose = PoseSample{ 0, std::vector<SegmentSample>(NeuronSegmentName.size()) };
-	std::vector<linalg::vec<float, 3>> relativeLocations(NeuronSegmentName.size());
-	std::vector<linalg::vec<float, 4>> relativeRotations(NeuronSegmentName.size());
-
-	for (unsigned int i = 0; i < NeuronSegmentName.size(); i++) {
-		// Get locations and convert to meters
-		float xloc = data[(i * 6) + 0] / 100.0;
-		float yloc = data[(i * 6) + 1] / 100.0;
-		float zloc = data[(i * 6) + 2] / 100.0;
-
-		// Get rotations and convert to radians
-		float yrot = data[(i * 6) + 3] * M_PI / 180; //yaw
-		float xrot = data[(i * 6) + 4] * M_PI / 180; //pitch
-		float zrot = data[(i * 6) + 5] * M_PI / 180; //roll
-
-		//// Min euler
-		//yrot = (yrot < 0) ? yrot + 360.0 : yrot;
-		//xrot = (xrot < 0) ? xrot + 360.0 : xrot;
-		//zrot = (zrot < 0) ? zrot + 360.0 : zrot;
-
-		//// Max euler
-		//yrot = (yrot >= 360.0) ? yrot - 360.0 : yrot;
-		//xrot = (xrot >= 360.0) ? xrot - 360.0 : xrot;
-		//zrot = (zrot >= 360.0) ? zrot - 360.0 : zrot;
-
-		// Store relative locations for conversion to absolute locations
-
-
-		// Convert rotations to quaternions
-		linalg::vec<float, 3> pos = {xloc, yloc, zloc};
-		linalg::vec<float, 3> euler = { yrot, xrot, zrot };
-		linalg::vec<float, 4> quat = eulerToQuaternion(euler);
-		quat = linalg::normalize(quat);
-
-		//linalg::mat<float, 4, 4> trans_mat = linalg::pose_matrix<float>(quat, pos);
-		//trans_mat = ConvertLeftToRightHanded(trans_mat);
-		//linalg::vec<float, 4> rotQuat = linalg::rotation_quat(GetRotationMatrixFromTransform(trans_mat));
-
-		// Create pose
-		relativeLocations[i][0] = pos.x;
-		relativeLocations[i][1] = pos.y;
-		relativeLocations[i][2] = pos.z;
-		relativeRotations[i][0] = quat.w;
-		relativeRotations[i][1] = quat.x;
-		relativeRotations[i][2] = quat.y;
-		relativeRotations[i][3] = quat.z;
-	}
-
-	// We need to convert relative joint positions to absolute so use the cached BVH hierarchy
-	for (unsigned int joint_idx = 0; joint_idx < NeuronSegmentName.size(); joint_idx++) {
-		auto jointChain = bvhLoader.GetBoneChainToTarget(joint_idx);
-		
-		// Sum relative joint locations to get the absolute translation
-		auto start_joint = *jointChain.begin();
-		linalg::mat<float, 4, 4> abs_joint_pose = linalg::pose_matrix<float>(relativeRotations[start_joint->index], relativeLocations[start_joint->index]);
-		for(auto joint : jointChain){
-			if (joint != *jointChain.begin()) {
-				// Multiply child against each parent joint to build absolute position
-				linalg::vec<float, 3> offset_pos = relativeLocations[joint->index];//{ joint->offset.x / 100.0f, joint->offset.y / 100.0f, joint->offset.z / 100.0f };
-				abs_joint_pose = linalg::mul(abs_joint_pose, linalg::pose_matrix<float>(relativeRotations[joint->index], offset_pos));
-			}
-		}
-
-		// Pull quaternion out of segment transformation matrix
-		linalg::vec<float, 4> rotQuat = linalg::rotation_quat(GetRotationMatrixFromTransform(abs_joint_pose));
-
-		pose.segments[joint_idx].translation[0] = abs_joint_pose.w.x;
-		pose.segments[joint_idx].translation[1] = abs_joint_pose.w.y;
-		pose.segments[joint_idx].translation[2] = abs_joint_pose.w.z;
-		pose.segments[joint_idx].rotation_quat[0] = rotQuat.w;
-		pose.segments[joint_idx].rotation_quat[1] = rotQuat.x;
-		pose.segments[joint_idx].rotation_quat[2] = rotQuat.y;
-		pose.segments[joint_idx].rotation_quat[3] = rotQuat.z;
-	}
+	// Update joint posture recursived [1/8/2021 brian.wang]
+	UpdateJointsTransform(joint, pose);
 
 	QueuePose(pose);
 }
+
+void NeuronStreamSource::UpdateJointsTransform(MocapApi::MCPJointHandle_t joint, PoseSample& outPose)
+{
+	MocapApi::EMCPError mcpError;
+
+	// Get Joint Interface [1/8/2021 brian.wang]
+	MocapApi::IMCPJoint* jointMgr = nullptr;
+	mcpError = MocapApi::MCPGetGenericInterface(MocapApi::IMCPJoint_Version,
+		reinterpret_cast<void**>(&jointMgr));
+	assert(mcpError == MocapApi::EMCPError::Error_None);
+
+	// Get Joint Name [1/8/2021 brian.wang]
+	const char* name = nullptr;
+	jointMgr->GetJointName(&name, joint);
+	assert(mcpError == MocapApi::EMCPError::Error_None);
+
+	MocapApi::EMCPJointTag jointTag = MocapApi::EMCPJointTag::JointTag_Invalid;
+	mcpError = jointMgr->GetJointTag(&jointTag, joint);
+	assert(mcpError == MocapApi::EMCPError::Error_None);
+	int jointIdx = (int)jointTag;
+
+	MocapApi::IMCPBodyPart* bodyPartMgr = nullptr;
+	mcpError = MocapApi::MCPGetGenericInterface(MocapApi::IMCPBodyPart_Version,
+		reinterpret_cast<void**>(&bodyPartMgr));
+	assert(mcpError == MocapApi::EMCPError::Error_None);
+
+	MocapApi::MCPBodyPartHandle_t bodyPart;
+	mcpError = jointMgr->GetJointBodyPart(&bodyPart, joint);
+	assert(mcpError == MocapApi::EMCPError::Error_None);
+
+	float xloc, yloc, zloc;
+	linalg::vec<float, 3> loc;
+	linalg::vec<float, 4> rot;
+
+	mcpError = jointMgr->GetJointLocalPosition(&loc.x, &loc.y, &loc.z, joint);
+	mcpError = jointMgr->GetJointLocalRotation(&rot.y, &rot.x , &rot.z, &rot.w, joint);
+	//mcpError = bodyPartMgr->GetJointPosition(&x, &y, &z, bodyPart);
+	assert(mcpError == MocapApi::EMCPError::Error_None);
+
+
+	linalg::mat<float, 4, 4> worldPose = linalg::pose_matrix<float>(rot, loc / 100.0f);
+	linalg::vec<float, 4> quat = linalg::rotation_quat(GetRotationMatrixFromTransform(worldPose));
+
+	outPose.segments[jointIdx].translation[0] = worldPose.w.x;
+	outPose.segments[jointIdx].translation[1] = worldPose.w.y;
+	outPose.segments[jointIdx].translation[2] = worldPose.w.z;
+	outPose.segments[jointIdx].rotation_quat[0] = quat.w;
+	outPose.segments[jointIdx].rotation_quat[1] = quat.y;
+	outPose.segments[jointIdx].rotation_quat[2] = quat.y;
+	outPose.segments[jointIdx].rotation_quat[3] = quat.z;
+
+	//jointMgr->GetJointLocalPosition(&v.X, &v.Y, &v.Z, joint)
+	//jointMgr->GetJointLocalRotation(&q.X, &q.Y, &q.Z, &q.W, joint);
+	
+	uint32_t numberOfChildren = 0;
+	jointMgr->GetJointChild(nullptr, &numberOfChildren, joint);
+	if (numberOfChildren > 0) {
+		std::vector<MocapApi::MCPJointHandle_t> joints;
+		joints.resize(numberOfChildren);
+		jointMgr->GetJointChild(&joints[0], &numberOfChildren, joint);
+
+		// Update joint posture recursived [1/8/2021 brian.wang]
+		for (auto j : joints) {
+			UpdateJointsTransform(j, outPose);
+		}
+	}
+}
+
+
+//void NeuronStreamSource::BvhExport(BvhDataHeader* header, float* data) {
+//
+//	// Initial connection :
+//	// We get the initial offsets and the hierarchy
+//	m_perJoint = 6;
+//
+//	if (!header->WithDisp) {
+//		GetDriver()->Log("Received BVH frame from Axis Studio with no displacement data. Enable displacement in Axis studio BVH broadcast.");
+//		return;
+//	}
+//
+//	m_currentFrame = header->FrameIndex;
+//
+//	PoseSample pose = PoseSample{ 0, std::vector<SegmentSample>(NeuronSegmentName.size()) };
+//	std::vector<linalg::vec<float, 3>> localLocations(NeuronSegmentName.size());
+//	std::vector<linalg::vec<float, 4>> localRotations(NeuronSegmentName.size());
+//
+//	// Only need to calculate each worldspace joint once
+//	std::unordered_map<int, linalg::mat<float, 4, 4>> worldspace_joint_poses = { {0, linalg::pose_matrix<float>(localRotations[0], localLocations[0])} };
+//
+//	for (unsigned int i = 0; i < NeuronSegmentName.size(); ++i) {
+//		// Get locations and convert to meters
+//		float xloc = data[(i * 6) + 0] / 100.0;
+//		float yloc = data[(i * 6) + 1] / 100.0;
+//		float zloc = data[(i * 6) + 2] / 100.0;
+//
+//		// Get rotations and convert to radians
+//		float yrot = data[(i * 6) + 3] * M_PI / 180; //yaw
+//		float xrot = data[(i * 6) + 4] * M_PI / 180; //pitch
+//		float zrot = data[(i * 6) + 5] * M_PI / 180; //roll
+//
+//		// Convert rotations to quaternions
+//		linalg::vec<float, 3> localpos = {xloc, yloc, zloc};
+//		linalg::vec<float, 4> localrot = linalg::normalize(eulerToQuaternion(linalg::vec<float, 3>{ yrot, xrot, zrot }));
+//		linalg::mat<float, 4, 4> localPose = linalg::pose_matrix<float>(localrot, localpos);
+//
+//		if (i == 0) {
+//			// Hips
+//			//GetDriver()->Log("Saving worldspace pose for joint " + NeuronSegmentName.at((NeuronSegment)i));
+//			worldspace_joint_poses[i] = linalg::pose_matrix<float>(localrot, localpos);
+//		}
+//
+//		auto jointChain = bvhLoader.GetBoneChainToTarget(i);
+//		auto start_joint = *jointChain.begin();
+//		for (auto joint : jointChain) {
+//			if (joint->parent) {
+//				if (worldspace_joint_poses.find(joint->index) == worldspace_joint_poses.end()) {
+//					auto parent_world_pose = worldspace_joint_poses.find(joint->parent->index);
+//					//GetDriver()->Log("Saving worldspace pose for joint " + NeuronSegmentName.at((NeuronSegment)i));
+//					worldspace_joint_poses[joint->index] = linalg::mul(parent_world_pose->second, localPose);
+//				}
+//			}
+//		}
+//
+//		linalg::vec<float, 4> rotQuat = linalg::rotation_quat(GetRotationMatrixFromTransform(worldspace_joint_poses[i]));
+//
+//		pose.segments[i].translation[0] = worldspace_joint_poses[i].w.x;
+//		pose.segments[i].translation[1] = worldspace_joint_poses[i].w.y;
+//		pose.segments[i].translation[2] = worldspace_joint_poses[i].w.z;
+//		pose.segments[i].rotation_quat[0] = rotQuat.w;
+//		pose.segments[i].rotation_quat[1] = rotQuat.x;
+//		pose.segments[i].rotation_quat[2] = rotQuat.y;
+//		pose.segments[i].rotation_quat[3] = rotQuat.z;
+//	}
+//
+//	QueuePose(pose);
+//}
 
 std::string NeuronStreamSource::GetSegmentRole(NeuronSegment segment)
 {
