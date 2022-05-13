@@ -92,14 +92,16 @@ bool NeuronStreamSource::Connect()
 	{
 		// Query RenderSettings Interface [1/8/2021 brian.wang]
 		MocapApi::IMCPRenderSettings* renderSettings = nullptr;
-		mcpError = MocapApi::MCPGetGenericInterface(MocapApi::IMCPRenderSettings_Version,
-			reinterpret_cast<void**>(&renderSettings));
+		mcpError = MocapApi::MCPGetGenericInterface(MocapApi::IMCPRenderSettings_Version, reinterpret_cast<void**>(&renderSettings));
 		assert(mcpError == MocapApi::EMCPError::Error_None);
 
 		MocapApi::MCPRenderSettingsHandle_t renderSettingsHandle = 0;
 
 		// Get Pre-Defined RenderSetting suport PreDefinedRenderSettings_UnrealEngine, or PreDefinedRenderSettings_Unity3D [1/8/2021 brian.wang]
-		renderSettings->GetPreDefRenderSettings(MocapApi::PreDefinedRenderSettings_Default, &renderSettingsHandle);// MUST NOT Destroy this [1/8/2021 brian.wang]
+		//renderSettings->GetPreDefRenderSettings(MocapApi::PreDefinedRenderSettings_Default, &renderSettingsHandle);// MUST NOT Destroy this [1/8/2021 brian.wang]
+		renderSettings->SetUpVector(MocapApi::UpVector_YAxis, 1, renderSettingsHandle);
+		renderSettings->SetFrontVector(MocapApi::EMCPFrontVector::FrontVector_ParityEven, 1, renderSettingsHandle);
+		renderSettings->SetCoordSystem(MocapApi::EMCPCoordSystem::CoordSystem_RightHanded, renderSettingsHandle);
 
 		// Set Render Settings for Application [1/8/2021 brian.wang]
 		mcpError = mcpApplication->SetApplicationRenderSettings(renderSettingsHandle, _application);
@@ -207,74 +209,84 @@ void NeuronStreamSource::UpdateAvatarTransform(MocapApi::MCPAvatarHandle_t avata
 	PoseSample pose = PoseSample{ 0, std::vector<SegmentSample>(MocapApi::EMCPJointTag::JointTag_JointsCount) };
 
 	// Update joint posture recursived [1/8/2021 brian.wang]
-	UpdateJointsTransform(joint, pose);
+	UpdateJointsTransform(joint, avatar, pose);
 
 	QueuePose(pose);
 }
 
-void NeuronStreamSource::UpdateJointsTransform(MocapApi::MCPJointHandle_t joint, PoseSample& outPose)
+void NeuronStreamSource::UpdateJointsTransform(MocapApi::MCPJointHandle_t joint, MocapApi::MCPAvatarHandle_t avatar, PoseSample& outPose)
 {
 	MocapApi::EMCPError mcpError;
 
-	// Get Joint Interface [1/8/2021 brian.wang]
+	// Avatar interface
+	MocapApi::IMCPAvatar* avatarMgr = nullptr;
+	mcpError = MocapApi::MCPGetGenericInterface(MocapApi::IMCPAvatar_Version, reinterpret_cast<void**>(&avatarMgr));
+	assert(mcpError == MocapApi::EMCPError::Error_None);
+
+	// Joint interface
 	MocapApi::IMCPJoint* jointMgr = nullptr;
-	mcpError = MocapApi::MCPGetGenericInterface(MocapApi::IMCPJoint_Version,
-		reinterpret_cast<void**>(&jointMgr));
+	mcpError = MocapApi::MCPGetGenericInterface(MocapApi::IMCPJoint_Version, reinterpret_cast<void**>(&jointMgr));
 	assert(mcpError == MocapApi::EMCPError::Error_None);
 
-	// Get Joint Name [1/8/2021 brian.wang]
-	const char* name = nullptr;
-	jointMgr->GetJointName(&name, joint);
-	assert(mcpError == MocapApi::EMCPError::Error_None);
-
-	MocapApi::EMCPJointTag jointTag = MocapApi::EMCPJointTag::JointTag_Invalid;
+	// Get joint tag and index
+	MocapApi::EMCPJointTag jointTag;
 	mcpError = jointMgr->GetJointTag(&jointTag, joint);
 	assert(mcpError == MocapApi::EMCPError::Error_None);
 	int jointIdx = (int)jointTag;
 
+	// Body part manage (do we need this?)
 	MocapApi::IMCPBodyPart* bodyPartMgr = nullptr;
-	mcpError = MocapApi::MCPGetGenericInterface(MocapApi::IMCPBodyPart_Version,
-		reinterpret_cast<void**>(&bodyPartMgr));
+	mcpError = MocapApi::MCPGetGenericInterface(MocapApi::IMCPBodyPart_Version, reinterpret_cast<void**>(&bodyPartMgr));
 	assert(mcpError == MocapApi::EMCPError::Error_None);
-
 	MocapApi::MCPBodyPartHandle_t bodyPart;
 	mcpError = jointMgr->GetJointBodyPart(&bodyPart, joint);
 	assert(mcpError == MocapApi::EMCPError::Error_None);
 
-	float xloc, yloc, zloc;
-	linalg::vec<float, 3> loc;
-	linalg::vec<float, 4> rot;
+	// Get the parent joint
+	MocapApi::EMCPJointTag parentJointTag;
+	char* jointName = nullptr;
+	jointMgr->GetJointParentJointTag(&parentJointTag, jointTag);
+	int parentJointIdx = (int)parentJointTag;
 
-	mcpError = jointMgr->GetJointLocalPosition(&loc.x, &loc.y, &loc.z, joint);
-	mcpError = jointMgr->GetJointLocalRotation(&rot.y, &rot.x , &rot.z, &rot.w, joint);
-	//mcpError = bodyPartMgr->GetJointPosition(&x, &y, &z, bodyPart);
+	// Local joint
+	linalg::vec<float, 3> jointLoc;
+	linalg::vec<float, 4> jointRot;
+	mcpError = jointMgr->GetJointLocalPosition(&jointLoc.x, &jointLoc.y, &jointLoc.z, joint);
+	mcpError = jointMgr->GetJointLocalRotation(&jointRot.x, &jointRot.y , &jointRot.z, &jointRot.w, joint);
 	assert(mcpError == MocapApi::EMCPError::Error_None);
+	linalg::mat<float, 4, 4> localPose = linalg::pose_matrix<float>(jointRot, jointLoc / 100.0f);
+	linalg::mat<float, 4, 4> worldPose = localPose;
 
+	// Get parent joint world space (already calculated earlier in the hierarchy)
+	if (parentJointTag != MocapApi::EMCPJointTag::JointTag_Invalid) {
+		auto parentJointTransform = outPose.segments[parentJointIdx];
+		linalg::vec<float, 4> parentJointRot = { (float)parentJointTransform.rotation_quat[1], (float)parentJointTransform.rotation_quat[2], (float)parentJointTransform.rotation_quat[3], (float)parentJointTransform.rotation_quat[0] };
+		linalg::vec<float, 3> parentJointLoc = { (float)parentJointTransform.translation[0], (float)parentJointTransform.translation[1], (float)parentJointTransform.translation[2] };
+		linalg::mat<float, 4, 4> parentWorldPose = linalg::pose_matrix<float>(parentJointRot, parentJointLoc);
 
-	linalg::mat<float, 4, 4> worldPose = linalg::pose_matrix<float>(rot, loc / 100.0f);
-	linalg::vec<float, 4> quat = linalg::rotation_quat(GetRotationMatrixFromTransform(worldPose));
+		// Convert joint to parent joint world space that we've already calculated
+		worldPose = linalg::mul(parentWorldPose, localPose);
+	}
 
+	// Store worldspace joint transform
+	linalg::vec<float, 4> worldRot = linalg::rotation_quat(GetRotationMatrixFromTransform(worldPose));
 	outPose.segments[jointIdx].translation[0] = worldPose.w.x;
 	outPose.segments[jointIdx].translation[1] = worldPose.w.y;
 	outPose.segments[jointIdx].translation[2] = worldPose.w.z;
-	outPose.segments[jointIdx].rotation_quat[0] = quat.w;
-	outPose.segments[jointIdx].rotation_quat[1] = quat.y;
-	outPose.segments[jointIdx].rotation_quat[2] = quat.y;
-	outPose.segments[jointIdx].rotation_quat[3] = quat.z;
-
-	//jointMgr->GetJointLocalPosition(&v.X, &v.Y, &v.Z, joint)
-	//jointMgr->GetJointLocalRotation(&q.X, &q.Y, &q.Z, &q.W, joint);
+	outPose.segments[jointIdx].rotation_quat[0] = worldRot.w;
+	outPose.segments[jointIdx].rotation_quat[1] = worldRot.y;
+	outPose.segments[jointIdx].rotation_quat[2] = worldRot.y;
+	outPose.segments[jointIdx].rotation_quat[3] = worldRot.z;
 	
+	// Recursively move down the joint chain
 	uint32_t numberOfChildren = 0;
 	jointMgr->GetJointChild(nullptr, &numberOfChildren, joint);
 	if (numberOfChildren > 0) {
 		std::vector<MocapApi::MCPJointHandle_t> joints;
 		joints.resize(numberOfChildren);
 		jointMgr->GetJointChild(&joints[0], &numberOfChildren, joint);
-
-		// Update joint posture recursived [1/8/2021 brian.wang]
 		for (auto j : joints) {
-			UpdateJointsTransform(j, outPose);
+			UpdateJointsTransform(j, avatar, outPose);
 		}
 	}
 }

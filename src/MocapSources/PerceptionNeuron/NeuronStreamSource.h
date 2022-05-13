@@ -36,7 +36,7 @@ public:
 private:
 	MocapApi::MCPApplicationHandle_t _application;
 	void UpdateAvatarTransform(MocapApi::MCPAvatarHandle_t avatar);
-	void UpdateJointsTransform(MocapApi::MCPJointHandle_t joint, PoseSample& outPose);
+	void UpdateJointsTransform(MocapApi::MCPJointHandle_t joint, MocapApi::MCPAvatarHandle_t avatar, PoseSample& outPose);
 
 	std::string GetSegmentRole(NeuronSegment segment);
 
