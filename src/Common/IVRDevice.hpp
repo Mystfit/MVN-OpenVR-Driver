@@ -3,7 +3,8 @@
 #include <variant>
 #include <openvr_driver.h>
 #include <DeviceType.hpp>
-#include <IMocapStreamSource.hpp>
+
+class IMocapStreamSource;
 
 namespace MocapDriver {
 

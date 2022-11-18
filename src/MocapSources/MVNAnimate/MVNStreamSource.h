@@ -14,8 +14,8 @@
 class MVNStreamSource : public IMocapStreamSource {
 public:
 	virtual void init(MocapDriver::IVRDriver* owning_driver) override;
+	virtual void Close() override;
 	virtual void PopulateTrackers() override;
-	virtual MocapDriver::IVRDriver* GetDriver() override;
 	virtual PoseSample GetNextPose() override;
 	virtual void QueuePose(const PoseSample& pose);
 	virtual std::string GetRenderModelPath(int segmentIndex);
@@ -24,7 +24,6 @@ private:
 	void ReceiveMVNData(StreamingProtocol, const Datagram*);
 
 	std::string GetSettingsSegmentTarget(Segment segment);
-	MocapDriver::IVRDriver* driver_;
 	std::unordered_map<Segment, std::shared_ptr<MocapDriver::IVRDevice>> trackers_;
 	std::unique_ptr<UdpServer> mvn_udp_server_;
 

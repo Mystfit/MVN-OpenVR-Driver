@@ -1,5 +1,6 @@
 #include "TrackerDevice.hpp"
 #include <PoseMath.hpp>
+#include <IMocapStreamSource.hpp>
 
 using namespace MocapDriver;
 
