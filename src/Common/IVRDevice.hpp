@@ -53,9 +53,14 @@ namespace MocapDriver {
         virtual void SetMotionSource(IMocapStreamSource* motionSource) = 0;
 
         /// <summary>
-       /// Sets the segment of a mocap source this tracker represents
-       /// </summary>
+        /// Sets the segment of a mocap source this tracker represents
+        /// </summary>
         virtual void SetSegmentIndex(int segmentIndex) = 0;
+
+       /// <summary>
+        /// Submits a new pose to the tracker
+        /// </summary>
+        virtual void SubmitPose() = 0;
 
         
         /// <summary>

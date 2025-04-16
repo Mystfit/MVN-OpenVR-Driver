@@ -73,7 +73,6 @@ add_custom_command(
 	POST_BUILD
 	TARGET ${MVNANIMATE_TARGET}
     COMMAND ${CMAKE_COMMAND} -E copy "$<TARGET_FILE:xstypes>" "${XSENSE_DLL_DEST}"
-    DEPENDS ${MVNAnimateStream} 
 )
 add_custom_target(task_MVNCopyLibs ALL
     DEPENDS ${XSENSE_DLL_DEST}

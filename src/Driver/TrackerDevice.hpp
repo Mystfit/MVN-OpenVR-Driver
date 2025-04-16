@@ -12,6 +12,7 @@
 #include <sstream>
 #include <iostream>
 #include <string>
+#include <thread>
 
 namespace MocapDriver {
     class TrackerDevice : public IVRDevice {
@@ -33,6 +34,8 @@ namespace MocapDriver {
             virtual void* GetComponent(const char* pchComponentNameAndVersion) override;
             virtual void DebugRequest(const char* pchRequest, char* pchResponseBuffer, uint32_t unResponseBufferSize) override;
             virtual vr::DriverPose_t GetPose() override;
+            virtual void SubmitPose() override;
+
             virtual void reinit(int msaved, double mtime, double msmooth, UniverseOrigin origin = {});
             
             // Inherited via IVRDevice mocap additions
@@ -47,7 +50,7 @@ namespace MocapDriver {
         std::string role_;
         bool isSetup;
 
-        std::chrono::milliseconds _pose_timestamp;
+        std::chrono::high_resolution_clock::time_point _pose_timestamp;
 
         vr::DriverPose_t last_pose_ = IVRDevice::MakeDefaultPose();
 
@@ -69,6 +72,9 @@ namespace MocapDriver {
         int segmentIndex_;
         double translation_origin[3] = {};
         vr::HmdQuaternion_t rotation_origin;
+
+        // Update thread
+        std::thread pose_submit_thread;
     };
 };
 
