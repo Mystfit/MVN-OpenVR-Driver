@@ -4,6 +4,7 @@
 #include <linalg.h>
 #include <unordered_map>
 #include <IVRDriver.hpp>
+#include <chrono>
 
 struct SegmentSample {
 	linalg::mat<float, 4, 4> localTransform;
@@ -11,11 +12,13 @@ struct SegmentSample {
 	double translation[3];
 	double rotation_quat[4];
 	double velocity[3];
+	double angular_velocity[3];
 };
 
 struct PoseSample {
 	int32_t pose_id;
-	std::unordered_map<int, SegmentSample> segments;
+	std::vector<SegmentSample> segments;
+	std::chrono::high_resolution_clock::time_point timestamp;
 };
 
 // Forwards 
@@ -32,8 +35,8 @@ public:
 	virtual void PopulateTrackers() = 0;
 	virtual void Close() = 0;
 	virtual MocapDriver::IVRDriver* GetDriver() { return driver_; }
-
-	virtual void QueuePose(const PoseSample& pose) = 0;
+	virtual void WaitForPose(PoseSample& outPose) = 0;
+	virtual void QueuePose(const PoseSample& pose, const std::chrono::high_resolution_clock::time_point& timestamp) = 0;
 	virtual PoseSample GetNextPose() = 0;
 
 	vr::TrackedDevicePose_t GetHMDPose()

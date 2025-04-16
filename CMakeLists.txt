@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION "3.7.1")
+cmake_minimum_required(VERSION "3.13.1")
 
 cmake_policy(SET CMP0079 NEW)
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake;${CMAKE_MODULE_PATH}")

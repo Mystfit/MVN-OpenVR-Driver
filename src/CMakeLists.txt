@@ -41,7 +41,6 @@ add_custom_command(
     TARGET ${DRIVER_TARGET}
     PRE_BUILD 
     COMMAND ${CMAKE_COMMAND} -E copy_directory "${SOURCE_DIR}/resources" "${DRIVER_RESOURCE_DEST}"
-    DEPENDS ${DRIVER_RESOURCE_DEST}
 )
 
 # Copy dll to output folder
@@ -52,7 +51,6 @@ add_custom_command(
     POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy "$<TARGET_FILE:${DRIVER_TARGET}>" "${DRIVER_DLL_DEST}/$<TARGET_FILE_NAME:${DRIVER_TARGET}>"
     COMMAND "$<$<CONFIG:Debug,RelWithDebInfo>:${PDB_COPY_COMMAND}>"
-    DEPENDS ${DRIVER_DLL_SRC} ${DRIVER_DLL_DEST}/$<TARGET_FILE_NAME:${DRIVER_TARGET}>
     VERBATIM
     COMMENT "Copying dll to ${DRIVER_DLL_DEST}"
     COMMAND_EXPAND_LISTS

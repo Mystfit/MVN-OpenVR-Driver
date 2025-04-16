@@ -1,5 +1,7 @@
 #pragma once
 #include <linalg.h>
+#include <algorithm> // For std::min and std::max
+#include <cmath>     // For std::acos, std::sin
 
 inline void normalizeQuat(double pose[]){
     double mag = sqrt(pose[3] * pose[3] +
@@ -148,4 +150,51 @@ inline vr::HmdVector3_t GetPosition(vr::HmdMatrix34_t matrix) {
     vector.v[2] = matrix.m[2][3];
 
     return vector;
+}
+
+inline linalg::vec<float, 3> CalculateAngularVelocity(
+    const linalg::vec<float, 4>& q0,  // quaternion at time t0 [x,y,z,w]
+    const linalg::vec<float, 4>& q1,  // quaternion at time t1 [x,y,z,w]
+    float dt)                         // time difference between t0 and t1
+{
+    // Ensure quaternions are normalized
+    linalg::vec<float, 4> q0_normalized = linalg::normalize(q0);
+    linalg::vec<float, 4> q1_normalized = linalg::normalize(q1);
+
+    // Calculate quaternion inverse (for unit quaternions, inverse = conjugate)
+    linalg::vec<float, 4> q0_inv = { -q0_normalized[0], -q0_normalized[1], -q0_normalized[2], q0_normalized[3] };
+
+    // Manual quaternion multiplication for q_diff = q1 * q0_inv
+    float x1 = q1_normalized[0], y1 = q1_normalized[1], z1 = q1_normalized[2], w1 = q1_normalized[3];
+    float x2 = q0_inv[0], y2 = q0_inv[1], z2 = q0_inv[2], w2 = q0_inv[3];
+
+    linalg::vec<float, 4> q_diff = {
+        w1 * x2 + x1 * w2 + y1 * z2 - z1 * y2,  // x
+        w1 * y2 + y1 * w2 + z1 * x2 - x1 * z2,  // y
+        w1 * z2 + z1 * w2 + x1 * y2 - y1 * x2,  // z
+        w1 * w2 - x1 * x2 - y1 * y2 - z1 * z2   // w
+    };
+
+    // Convert to axis-angle representation
+    // The angle is 2 * acos(q_diff.w)
+    float angle = 2.0f * std::acos(std::clamp(q_diff[3], -1.0f, 1.0f));
+
+    // Avoid division by zero and numerical instability for small angles
+    linalg::vec<float, 3> axis;
+    if (angle < 1e-6f) {
+        // For very small rotations, return zero angular velocity
+        return linalg::vec<float, 3>{0, 0, 0};
+    }
+    else {
+        // Extract the rotation axis
+        float sin_half_angle = std::sin(angle / 2.0f);
+        axis = linalg::vec<float, 3>{ q_diff[0], q_diff[1], q_diff[2] } / sin_half_angle;
+
+        // Normalize axis
+        axis = linalg::normalize(axis);
+    }
+
+    // Calculate angular velocity vector (axis * angle / dt)
+    // Direction is the rotation axis, magnitude is angle/dt (radians/second)
+    return axis * (angle / dt);
 }
