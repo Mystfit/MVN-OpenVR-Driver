@@ -1,6 +1,7 @@
 #include "TrackerDevice.hpp"
 #include <PoseMath.hpp>
 #include <IMocapStreamSource.hpp>
+#include <vrmath.h>
 
 using namespace MocapDriver;
 
@@ -87,6 +88,23 @@ void MocapDriver::TrackerDevice::SubmitPose()
             // Setup pose for this frame
             vr::DriverPose_t tracker_pose = MakeDefaultPose();
 
+            // Get HMD pose in case we need to parent our pose to the HMD
+            vr::TrackedDevicePose_t hmd_pose = GetDriver()->GetHMDPose();
+
+            // Get the position of the hmd from the 3x4 matrix GetRawTrackedDevicePoses returns
+            const vr::HmdVector3_t hmd_position = HmdVector3_From34Matrix(hmd_pose.mDeviceToAbsoluteTracking);
+            // Get the orientation of the hmd from the 3x4 matrix GetRawTrackedDevicePoses returns
+            const vr::HmdQuaternion_t hmd_orientation = HmdQuaternion_FromMatrix(hmd_pose.mDeviceToAbsoluteTracking);
+
+            // TODO: Calculate the offset that will need to be applied to each segment in driver world space so that the mocap pose appears to be parented underneath the HMD.
+            // This will require us to move every segment so that the head segment becomes the new parent and follows the HMD.
+            // To achieve this, I believe that we may have to first figure out the relative transformation between each segment and the head segment.
+            // Second, we need to figure out the relative transform between the head segment and the HMD in world space.
+            // Finally, we need to offset each segment by the relative transform between the head and the HMD, so that each segment has been shifted to appear to be parented under the HMD
+            //
+            // Some thoughts... if we are effectively reparenting each segment to the HMD, would this result in double transformations when rotating each segment? Maybe we only need to offset 
+            // the translation, and then offset the yaw of each segment around the new HMD parent. This is a hypothetical until we implement and test.
+
             // Update time delta (for working out velocity)
             std::chrono::high_resolution_clock::time_point  current_time;
             double real_pose_delta_seconds = 0.0;
@@ -105,7 +123,6 @@ void MocapDriver::TrackerDevice::SubmitPose()
             tracker_pose.qRotation.x = pose.segments[segmentIndex].rotation_quat[1];
             tracker_pose.qRotation.y = pose.segments[segmentIndex].rotation_quat[2];
             tracker_pose.qRotation.z = pose.segments[segmentIndex].rotation_quat[3];
-
 
             // Set world origin from universe standing position
             tracker_pose.vecWorldFromDriverTranslation[0] = translation_origin[0];
@@ -126,18 +143,6 @@ void MocapDriver::TrackerDevice::SubmitPose()
             // Set pose time offset
             current_time = std::chrono::high_resolution_clock::now();
             real_pose_delta_seconds = std::chrono::duration<double>(current_time - pose.timestamp).count();
-
-            if (real_pose_delta_seconds > 0)            //unless we get two pose updates at the same time, update velocity so steamvr can do some interpolation
-            {
-                // Update velocity using last submitted pose as a reference
-                /*tracker_pose.vecVelocity[0] = (tracker_pose.vecPosition[0] - this->last_pose_.vecPosition[0]) / pose_time_delta_seconds;
-                tracker_pose.vecVelocity[1] = (tracker_pose.vecPosition[1] - this->last_pose_.vecPosition[1]) / pose_time_delta_seconds;
-                tracker_pose.vecVelocity[2] = (tracker_pose.vecPosition[2] - this->last_pose_.vecPosition[2]) / pose_time_delta_seconds;*/
-                /*tracker_pose.vecVelocity[0] = 0.8 * tracker_pose.vecVelocity[0] + 0.2 * (tracker_pose.vecPosition[0] - previous_position[0]) / pose_time_delta_seconds;
-                tracker_pose.vecVelocity[1] = 0.8 * tracker_pose.vecVelocity[1] + 0.2 * (tracker_pose.vecPosition[1] - previous_position[1]) / pose_time_delta_seconds;
-                tracker_pose.vecVelocity[2] = 0.8 * tracker_pose.vecVelocity[2] + 0.2 * (tracker_pose.vecPosition[2] - previous_position[2]) / pose_time_delta_seconds;*/
-            }
-
             tracker_pose.poseTimeOffset = real_pose_delta_seconds;
             //Log("Segment: " + std::to_string(segmentIndex) + " Pose time offset : " + std::to_string(tracker_pose.poseTimeOffset));
 
@@ -269,6 +274,7 @@ vr::EVRInitError TrackerDevice::Activate(uint32_t unObjectId)
 void TrackerDevice::Deactivate()
 {
     this->device_index_ = vr::k_unTrackedDeviceIndexInvalid;
+    this->motionSource_->Close();
 }
 
 void TrackerDevice::EnterStandby()

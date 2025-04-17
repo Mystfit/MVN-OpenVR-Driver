@@ -56,9 +56,11 @@ void MocapDriver::VRDriver::LoadUniverseOrigin()
             auto translation = universe["standing"]["translation"];
 
             // Translation is a directional vector from the lighthouse to the HMD, so invert the direction to get the offset
-            origin_.translation[0] = -translation[0].get<float>();
+            // TODO: This doesn't need to be set for non-lighthouse headsets. I'm testing with a Meta Quest 3, but it's more likely that an MVN suit would be paired with lighthouse base stations.
+            // Best that we check if we're using a lighthouse based tracking system in this area
+            /*origin_.translation[0] = -translation[0].get<float>();
             origin_.translation[1] = -translation[1].get<float>();
-            origin_.translation[2] = -translation[2].get<float>();
+            origin_.translation[2] = -translation[2].get<float>();*/
 
             // Same offset needed with the yaw, rotate it by PI radians
             origin_.yaw = universe["standing"]["yaw"].get<float>() + M_PI;
@@ -202,6 +204,18 @@ void VRDriver::Log(std::string message)
 UniverseOrigin MocapDriver::VRDriver::GetUniverseOrigin()
 {
     return origin_;
+}
+
+vr::TrackedDevicePose_t MocapDriver::VRDriver::GetHMDPose()
+{
+    vr::TrackedDevicePose_t hmd_pose{};
+
+    // GetRawTrackedDevicePoses expects an array.
+    // We only want the hmd pose, which is at index 0 of the array so we can just pass the struct in directly, instead
+    // of in an array
+    vr::VRServerDriverHost()->GetRawTrackedDevicePoses(0.f, &hmd_pose, 1);
+
+    return hmd_pose;
 }
 
 vr::IVRDriverInput* VRDriver::GetInput()

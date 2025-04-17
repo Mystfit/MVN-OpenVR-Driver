@@ -27,6 +27,7 @@ namespace MocapDriver {
         virtual SettingsValue GetSettingsValue(std::string key) override;
         virtual void Log(std::string message) override;
         virtual UniverseOrigin GetUniverseOrigin() override;
+        virtual vr::TrackedDevicePose_t GetHMDPose() override;
 
         virtual vr::IVRDriverInput* GetInput() override;
         virtual vr::CVRPropertyHelpers* GetProperties() override;

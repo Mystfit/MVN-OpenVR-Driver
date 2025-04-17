@@ -77,6 +77,12 @@ namespace MocapDriver {
         virtual vr::IVRServerDriverHost* GetDriverHost() = 0;
 
         /// <summary>
+        /// Gets the OpenVR VRServerDriverHost pointer
+        /// </summary>
+        /// <returns>OpenVR VRServerDriverHost pointer</returns>
+        virtual vr::TrackedDevicePose_t GetHMDPose() = 0;
+
+        /// <summary>
         /// Writes a log message
         /// </summary>
         /// <param name="message">Message to log</param>

@@ -1,5 +1,6 @@
 {
   "MVN": {
+    "ParentToHMD": true,
     "Role_Pelvis": "vive_tracker_waist",
     "Role_L5": "disabled",
     "Role_L3": "disabled",

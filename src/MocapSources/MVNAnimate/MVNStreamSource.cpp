@@ -9,8 +9,11 @@
 
 void MVNStreamSource::init(MocapDriver::IVRDriver* owning_driver)
 {
-    IMocapStreamSource::init(owning_driver);
+    // Cache variables
+	driver_ = owning_driver;
+    parent_to_HMD_ = GetSettingsParentToHMD();
 
+    // Set up MVN UDP listener
     int port = 9763;
     std::string hostDestinationAddress = "localhost";
     mvn_udp_server_ = std::make_unique<UdpServer>(
@@ -20,11 +23,6 @@ void MVNStreamSource::init(MocapDriver::IVRDriver* owning_driver)
             this->ReceiveMVNData(protocol, message);
         });
     GetDriver()->Log("Created MVN listen server");
-}
-
-void MVNStreamSource::Close()
-{
-    mvn_udp_server_->stopThread();
 }
 
 void MVNStreamSource::PopulateTrackers()
@@ -45,6 +43,16 @@ void MVNStreamSource::PopulateTrackers()
     }
 }
 
+void MVNStreamSource::Close()
+{
+    mvn_udp_server_->stopThread();
+}
+
+MocapDriver::IVRDriver* MVNStreamSource::GetDriver()
+{
+    return driver_;
+}
+
 PoseSample MVNStreamSource::GetNextPose()
 {
     std::scoped_lock<std::mutex> lock(pose_update_mtx);
@@ -59,13 +67,6 @@ void MVNStreamSource::QueuePose(const PoseSample& pose, const std::chrono::high_
         completed_pose_.timestamp = timestamp;
     }
 
-    // Update all tracker threads
-    /*std::unique_lock<std::mutex> lck(pose_submit_mtx);
-    pose_processed = true;
-    lck.unlock();
-    pose_available.notify_all();
-    lck.lock();
-    pose_processed = false;*/
     for (auto pair : trackers_) {
         pair.second->SubmitPose();
     }
@@ -76,7 +77,6 @@ std::string MVNStreamSource::GetRenderModelPath(int segmentIndex)
     // Relative to "{Mocap}/rendermodels"
     return std::string("XSens/") + SegmentName.at((Segment)segmentIndex); //"{htc}/rendermodels/vr_tracker_vive_1_0"; 
 }
-
 
 std::string MVNStreamSource::GetSettingsSegmentTarget(Segment segment)
 {
@@ -96,11 +96,18 @@ std::string MVNStreamSource::GetSettingsSegmentTarget(Segment segment)
     return "";
 }
 
+bool MVNStreamSource::GetSettingsParentToHMD()
+{
+    vr::EVRSettingsError err = vr::EVRSettingsError::VRSettingsError_None;
+    bool result = vr::VRSettings()->GetBool("MVN", "ParentToHMD", &err);
+    if (err == vr::EVRSettingsError::VRSettingsError_None) {
+        return result;
+    }
+    return false;
+}
+
 void MVNStreamSource::ReceiveMVNData(StreamingProtocol protocol, const Datagram* message)
 {
-    if (protocol != StreamingProtocol::SPPoseQuaternion)
-        return;
-
     int32_t msg_id = message->sampleCounter();
     bool pose_is_complete = false;
 
@@ -134,6 +141,7 @@ void MVNStreamSource::ReceiveMVNData(StreamingProtocol protocol, const Datagram*
     for (auto tracker_pair : trackers_) {
         Segment segment = tracker_pair.first;
 
+        // Find incomplete pose segment for us to fill
         auto segment_it = incomplete_poses_[msg_id].segments.begin() + segment;
 
         if (protocol == StreamingProtocol::SPPoseQuaternion) {
@@ -148,6 +156,77 @@ void MVNStreamSource::ReceiveMVNData(StreamingProtocol protocol, const Datagram*
                     segment_quat_normalized,
                     linalg::vec<float, 3>(segment_data.position[0], segment_data.position[1], segment_data.position[2])
                 );
+
+                // Convert MVN Animate Z-up to OpenVR Y-up
+                linalg::mat<float, 4, 4> vrMatrix = ConvertZtoYUp(transformMatrix);
+
+                // Pull quaternion out of segment transformation matrix
+                linalg::vec<float, 4> rotQuat = linalg::rotation_quat(GetRotationMatrixFromTransform(vrMatrix));
+
+                // Fill in position and rotation data
+                segment_it->translation[0] = vrMatrix.w.x;
+                segment_it->translation[1] = vrMatrix.w.y;
+                segment_it->translation[2] = vrMatrix.w.z;
+                segment_it->rotation_quat[0] = rotQuat.w;
+                segment_it->rotation_quat[1] = rotQuat.x;
+                segment_it->rotation_quat[2] = rotQuat.y;
+                segment_it->rotation_quat[3] = rotQuat.z;
+
+                // Calculate velocities only if we have a previous pose to compare with
+                if (pose_delta_time > 0.0 && segment < completed_pose_.segments.size()) {
+                    // Get last position
+                    double last_trans[3] = {
+                        completed_pose_.segments[segment].translation[0],
+                        completed_pose_.segments[segment].translation[1],
+                        completed_pose_.segments[segment].translation[2]
+                    };
+
+                    // Get last rotation
+                    linalg::vec<float, 4> lastRotation = {
+                        float(completed_pose_.segments[segment].rotation_quat[1]),
+                        float(completed_pose_.segments[segment].rotation_quat[2]),
+                        float(completed_pose_.segments[segment].rotation_quat[3]),
+                        float(completed_pose_.segments[segment].rotation_quat[0])
+                    };
+
+                    // Calculate velocities with velocity clamping to prevent extreme values
+                    const double MAX_VELOCITY = 5.0; // 5 meters per second max velocity (adjust based on your needs)
+
+                    // Calculate raw velocities
+                    double vel_x = (segment_it->translation[0] - last_trans[0]) / pose_delta_time;
+                    double vel_y = (segment_it->translation[1] - last_trans[1]) / pose_delta_time;
+                    double vel_z = (segment_it->translation[2] - last_trans[2]) / pose_delta_time;
+
+                    // Apply low-pass filter to smooth velocities (adjust alpha as needed)
+                    const float alpha = 0.3f; // Lower = more smoothing
+                    segment_it->velocity[0] = ClampVelocity(alpha * vel_x + (1.0f - alpha) * completed_pose_.segments[segment].velocity[0], MAX_VELOCITY);
+                    segment_it->velocity[1] = ClampVelocity(alpha * vel_y + (1.0f - alpha) * completed_pose_.segments[segment].velocity[1], MAX_VELOCITY);
+                    segment_it->velocity[2] = ClampVelocity(alpha * vel_z + (1.0f - alpha) * completed_pose_.segments[segment].velocity[2], MAX_VELOCITY);
+
+                    // Calculate angular velocity from rotations with smoothing
+                    linalg::vec<float, 3> rawAngularVel = CalculateAngularVelocity(lastRotation, rotQuat, pose_delta_time);
+
+                    // Apply angular velocity smoothing
+                    segment_it->angular_velocity[0] = alpha * rawAngularVel.x + (1.0f - alpha) * completed_pose_.segments[segment].angular_velocity[0];
+                    segment_it->angular_velocity[1] = alpha * rawAngularVel.y + (1.0f - alpha) * completed_pose_.segments[segment].angular_velocity[1];
+                    segment_it->angular_velocity[2] = alpha * rawAngularVel.z + (1.0f - alpha) * completed_pose_.segments[segment].angular_velocity[2];
+                }
+                else {
+                    // First pose or invalid time delta - zero velocities
+                    segment_it->velocity[0] = 0.0;
+                    segment_it->velocity[1] = 0.0;
+                    segment_it->velocity[2] = 0.0;
+                    segment_it->angular_velocity[0] = 0.0;
+                    segment_it->angular_velocity[1] = 0.0;
+                    segment_it->angular_velocity[2] = 0.0;
+                }
+
+                if (segment == Segment::Pelvis && pose_delta_time > 0.0) {
+                    GetDriver()->Log("Velocity X:" + std::to_string(segment_it->velocity[0]) +
+                        ", Y:" + std::to_string(segment_it->velocity[1]) +
+                        ", Z: " + std::to_string(segment_it->velocity[2]) +
+                        ", dt: " + std::to_string(pose_delta_time));
+                }
             }
 
 #ifndef MVN_SUPPORTS_LINEAR_KINEMATICS 
